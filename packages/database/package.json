@@ -1,0 +1,24 @@
+{
+  "name": "@product-analytics/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:undo": "sequelize-cli db:migrate:undo",
+    "db:seed": "sequelize-cli db:seed:all",
+    "db:create": "sequelize-cli db:create",
+    "migration:create": "sequelize-cli migration:generate --name",
+    "db:test": "ts-node test-connection.js"
+  },
+  "dependencies": {
+    "sequelize": "^6.35.0",
+    "tedious": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "sequelize-cli": "^6.6.2",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "product-analytics-ai",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@10.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.0.0"
+  }
+}
