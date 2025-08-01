@@ -52,10 +52,10 @@ npm run dev
 
 Or run individually:
 ```bash
-# Frontend (port 3000)
+# Frontend (port 3001)
 cd apps/web && npm run dev
 
-# Backend API (port 3001)
+# Backend API (port 3002)
 cd apps/api && npm run dev
 ```
 

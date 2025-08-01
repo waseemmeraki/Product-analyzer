@@ -137,3 +137,6 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+/.vs/Product-analytics-ai
+/.turbo/daemon/b66c46271cff71e7-turbo.log.2025-07-31
+/.vs/slnx.sqlite

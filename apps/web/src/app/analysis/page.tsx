@@ -35,6 +35,22 @@ interface AnalysisResult {
     name: string;
     supportingFact: string;
     studyReference?: string;
+    usageMetrics?: {
+      searchVolume?: number;
+      trendingScore?: number;
+      userEngagement?: number;
+      recentMentions?: number;
+    };
+    credibilityScore?: number;
+    supportingStudies?: Array<{
+      title: string;
+      authors?: string;
+      journal?: string;
+      year?: number;
+      doi?: string;
+      summary: string;
+      relevanceScore?: number;
+    }>;
   }>;
 }
 
@@ -296,25 +312,145 @@ export default function AnalysisPage() {
           {analysis.insights.length > 0 && (
             <div className="mb-6 p-4 border rounded-lg">
               <h3 className="text-lg font-semibold mb-3 text-gray-800">Key Insights</h3>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {analysis.insights.map((insight, index) => (
-                  <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                    <div className="flex items-start justify-between">
+                  <div key={index} className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                    {/* Header with name, type, and credibility score */}
+                    <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <div className="font-medium text-sm">
-                          {insight.name}
-                          <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-semibold text-base text-gray-900">{insight.name}</h4>
+                          <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full font-medium">
                             {insight.type}
                           </span>
+                          {insight.credibilityScore && (
+                            <div className="flex items-center gap-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                insight.credibilityScore >= 80 ? 'bg-green-500' : 
+                                insight.credibilityScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}></div>
+                              <span className="text-xs text-gray-600">
+                                {insight.credibilityScore}% credible
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-sm text-gray-600 mt-1">{insight.supportingFact}</p>
-                        {insight.studyReference && (
-                          <p className="text-xs text-blue-600 mt-1 italic">
-                            Reference: {insight.studyReference}
-                          </p>
-                        )}
+                        <p className="text-sm text-gray-700 mb-3">{insight.supportingFact}</p>
                       </div>
                     </div>
+
+                    {/* Usage Metrics */}
+                    {insight.usageMetrics && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-blue-600">
+                            {insight.usageMetrics.searchVolume?.toLocaleString() || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500">Search Volume</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-green-600">
+                            {insight.usageMetrics.trendingScore || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500">Trending Score</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-purple-600">
+                            {insight.usageMetrics.userEngagement || 'N/A'}%
+                          </div>
+                          <div className="text-xs text-gray-500">Engagement</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-orange-600">
+                            {insight.usageMetrics.recentMentions || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500">Recent Mentions</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Market Data */}
+                    {insight.marketData && (
+                      <div className="mb-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                        <h5 className="text-sm font-medium text-indigo-800 mb-2">Market Intelligence</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                          {insight.marketData.adoptionRate && (
+                            <div>
+                              <span className="font-medium text-indigo-700">Adoption Rate:</span>
+                              <span className="ml-1 text-indigo-600">{insight.marketData.adoptionRate}</span>
+                            </div>
+                          )}
+                          {insight.marketData.searchTrends && (
+                            <div>
+                              <span className="font-medium text-indigo-700">Search Trends:</span>
+                              <span className="ml-1 text-indigo-600">{insight.marketData.searchTrends}</span>
+                            </div>
+                          )}
+                          {insight.marketData.marketGrowth && (
+                            <div>
+                              <span className="font-medium text-indigo-700">Market Growth:</span>
+                              <span className="ml-1 text-indigo-600">{insight.marketData.marketGrowth}</span>
+                            </div>
+                          )}
+                        </div>
+                        {insight.marketData.industryReports && insight.marketData.industryReports.length > 0 && (
+                          <div className="mt-2">
+                            <span className="font-medium text-indigo-700 text-xs">Industry Reports:</span>
+                            <ul className="mt-1 space-y-1">
+                              {insight.marketData.industryReports.map((report, reportIndex) => (
+                                <li key={reportIndex} className="text-xs text-indigo-600 ml-2">• {report}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Study Reference */}
+                    {insight.studyReference && (
+                      <div className="mb-3 p-2 bg-blue-50 rounded border-l-4 border-blue-400">
+                        <p className="text-xs text-blue-700 font-medium">Primary Reference:</p>
+                        <p className="text-xs text-blue-600 italic">{insight.studyReference}</p>
+                      </div>
+                    )}
+
+                    {/* Supporting Studies */}
+                    {insight.supportingStudies && insight.supportingStudies.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium text-gray-800 mb-2">Supporting Studies:</h5>
+                        {insight.supportingStudies.map((study, studyIndex) => (
+                          <div key={studyIndex} className="bg-gray-50 p-3 rounded border-l-4 border-green-400">
+                            <div className="flex items-start justify-between mb-1">
+                              <h6 className="text-sm font-medium text-gray-900 flex-1">{study.title}</h6>
+                              {study.relevanceScore && (
+                                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded ml-2">
+                                  {study.relevanceScore}% relevant
+                                </span>
+                              )}
+                            </div>
+                            {study.authors && (
+                              <p className="text-xs text-gray-600 mb-1">
+                                <span className="font-medium">Authors:</span> {study.authors}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 text-xs text-gray-600 mb-2">
+                              {study.journal && <span><span className="font-medium">Journal:</span> {study.journal}</span>}
+                              {study.year && <span><span className="font-medium">Year:</span> {study.year}</span>}
+                              {study.doi && (
+                                <span>
+                                  <span className="font-medium">DOI:</span> 
+                                  <a href={`https://doi.org/${study.doi}`} target="_blank" rel="noopener noreferrer" 
+                                     className="text-blue-600 hover:underline ml-1">
+                                    {study.doi}
+                                  </a>
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-700">{study.summary}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

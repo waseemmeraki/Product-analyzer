@@ -37,6 +37,28 @@ interface AnalysisResult {
     name: string;
     supportingFact: string;
     studyReference?: string;
+    marketData?: {
+      adoptionRate?: string;
+      searchTrends?: string;
+      marketGrowth?: string;
+      industryReports?: string[];
+    };
+    usageMetrics?: {
+      searchVolume?: number;
+      trendingScore?: number;
+      userEngagement?: number;
+      recentMentions?: number;
+    };
+    credibilityScore?: number;
+    supportingStudies?: Array<{
+      title: string;
+      authors?: string;
+      journal?: string;
+      year?: number;
+      doi?: string;
+      summary: string;
+      relevanceScore?: number;
+    }>;
   }>;
 }
 
@@ -47,11 +69,11 @@ export default function ProductSelectorPage() {
   const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'trending' | 'emerging' | 'declining' | 'insights'>('trending');
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
@@ -67,7 +89,6 @@ export default function ProductSelectorPage() {
       setSelectedCategory('');
       setProducts([]);
       setSelectedProducts([]);
-      setSelectedProduct('');
       setAnalysis(null);
     }
   }, [selectedBrand]);
@@ -77,10 +98,9 @@ export default function ProductSelectorPage() {
     if (selectedBrand && selectedCategory) {
       fetchProducts(selectedBrand, selectedCategory);
       setSelectedProducts([]);
-      setSelectedProduct('');
       setAnalysis(null);
     }
-  }, [selectedCategory]);
+  }, [selectedBrand, selectedCategory]);
 
   const fetchBrands = async () => {
     try {
@@ -92,6 +112,8 @@ export default function ProductSelectorPage() {
     } catch (error) {
       console.error('Error fetching brands:', error);
       setError('Failed to fetch brands');
+    } finally {
+      setIsInitialLoading(false);
     }
   };
 
@@ -158,7 +180,7 @@ export default function ProductSelectorPage() {
       const data = await response.json();
       if (data.success) {
         setAnalysis(data.data.analysis);
-        setShowReportModal(true);
+        setActiveFilter('trending'); // Reset to trending view
       } else {
         setError(data.message || 'Analysis failed');
       }
@@ -170,6 +192,17 @@ export default function ProductSelectorPage() {
     }
   };
 
+
+  if (isInitialLoading) {
+    return (
+      <div className="page-container">
+        <div className="header">
+          <h1 className="title">Product Analytics</h1>
+          <p className="subtitle">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-container">
@@ -230,32 +263,45 @@ export default function ProductSelectorPage() {
             <div className="count-badge">{categories.length} categories available</div>
           </div>
 
-          <div className="control-card">
+          <div className="control-card multi-select-card">
             <h3 className="card-title">
               🎯 Product Selection
             </h3>
-            <select
-              value={selectedProduct}
-              onChange={(e) => {
-                setSelectedProduct(e.target.value);
-                if (e.target.value && !selectedProducts.includes(e.target.value)) {
-                  setSelectedProducts([...selectedProducts, e.target.value]);
-                }
-              }}
-              disabled={!selectedCategory || products.length === 0}
-              className="select-input"
-            >
-              <option value="">Select a product...</option>
-              {products.map((product) => (
-                <option key={product.Id} value={product.Id}>
-                  {product.Name}
-                </option>
-              ))}
-            </select>
-            <div className="count-badge">{products.length} products available</div>
+            <div className="multi-select-container">
+              {products.length > 0 ? (
+                <div className="products-grid">
+                  {products.map((product) => (
+                    <div
+                      key={product.Id}
+                      className={`product-checkbox-item ${selectedProducts.includes(product.Id) ? 'selected' : ''}`}
+                      onClick={() => handleProductSelection(product.Id, !selectedProducts.includes(product.Id))}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.includes(product.Id)}
+                        onChange={(e) => handleProductSelection(product.Id, e.target.checked)}
+                        className="product-checkbox"
+                      />
+                      <div className="product-details">
+                        <div className="product-name-small">{product.Name}</div>
+                        <div className="product-meta-small">
+                          <span>⭐ {product.Rating}</span>
+                          <span>({product.ReviewCount})</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-products">
+                  {!selectedCategory ? 'Select a category to view products' : 'No products available'}
+                </div>
+              )}
+            </div>
+            <div className="count-badge">{products.length} products available • {selectedProducts.length} selected</div>
           </div>
 
-          <div className="control-card">
+          {/* <div className="control-card">
             <h3 className="card-title">
               ⚡ Analysis Engine
             </h3>
@@ -276,7 +322,7 @@ export default function ProductSelectorPage() {
             <div className="count-badge">
               {selectedProducts.length} products selected
             </div>
-          </div>
+          </div> */}
         </div>
 
         {selectedProducts.length > 0 && (
@@ -335,212 +381,316 @@ export default function ProductSelectorPage() {
                     `Analyze ${selectedProducts.length} products`
                   )}
                 </button>
-                {analysis && (
-                  <button
-                    onClick={() => setShowReportModal(true)}
-                    className="view-report-button"
-                  >
-                    📊 View Last Report
-                  </button>
-                )}
               </div>
             </div>
           </div>
         )}
 
-        {showReportModal && analysis && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <div className="modal-header">
-                <button
-                  onClick={() => setShowReportModal(false)}
-                  className="modal-close"
-                >
-                  ✕
-                </button>
-                <h1 className="modal-title">📊 Product Analysis Report</h1>
-                <p className="modal-subtitle">AI-powered ingredient intelligence and market trends</p>
-                <div className="modal-tags">
-                  <div className="modal-tag">
-                    📊 {selectedProducts.length} Products Analyzed
-                  </div>
-                  <div className="modal-tag">
-                    📅 Generated {new Date().toLocaleDateString()}
-                  </div>
-                  <div className="modal-tag">
-                    ⭐ {selectedBrand} - {selectedCategory}
-                  </div>
-                </div>
+        {analysis && (
+          <div className="analysis-report">
+            <div className="report-header">
+              <h2 className="report-title">📊 Analysis Results</h2>
+              <div className="report-meta">
+                <span className="report-info">📊 {selectedProducts.length} Products</span>
+                <span className="report-info">📅 {new Date().toLocaleDateString()}</span>
+                <span className="report-info">⭐ {selectedBrand} - {selectedCategory}</span>
               </div>
+            </div>
 
-              <div className="modal-body">
-                <div className="summary-grid">
-                  <div className="summary-card">
-                    <h3 className="section-title">📈 Trending</h3>
-                    <div className="summary-value">
-                      {analysis.trending.ingredients.length + analysis.trending.claims.length + analysis.trending.ingredientCategories.length}
-                    </div>
-                    <div className="summary-label">Active trends identified</div>
-                  </div>
-                  <div className="summary-card">
-                    <h3 className="section-title">🚀 Emerging</h3>
-                    <div className="summary-value">
-                      {analysis.emerging.ingredients.length + analysis.emerging.claims.length + analysis.emerging.ingredientCategories.length}
-                    </div>
-                    <div className="summary-label">New opportunities</div>
-                  </div>
-                  <div className="summary-card">
-                    <h3 className="section-title">📉 Declining</h3>
-                    <div className="summary-value">
-                      {analysis.declining.ingredients.length + analysis.declining.claims.length + analysis.declining.ingredientCategories.length}
-                    </div>
-                    <div className="summary-label">Fading trends</div>
-                  </div>
-                </div>
+            <div className="filter-tabs">
+              <button
+                className={`filter-tab ${activeFilter === 'trending' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('trending')}
+              >
+                📈 Trending ({analysis.trending.ingredients.length + analysis.trending.claims.length + analysis.trending.ingredientCategories.length})
+              </button>
+              <button
+                className={`filter-tab ${activeFilter === 'emerging' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('emerging')}
+              >
+                🚀 Emerging ({analysis.emerging.ingredients.length + analysis.emerging.claims.length + analysis.emerging.ingredientCategories.length})
+              </button>
+              <button
+                className={`filter-tab ${activeFilter === 'declining' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('declining')}
+              >
+                📉 Declining ({analysis.declining.ingredients.length + analysis.declining.claims.length + analysis.declining.ingredientCategories.length})
+              </button>
+              <button
+                className={`filter-tab ${activeFilter === 'insights' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('insights')}
+              >
+                💡 Insights ({analysis.insights.length})
+              </button>
+            </div>
 
-                <div className="analysis-grid">
-                  <div className="analysis-section">
-                    <h3 className="section-title">
-                      📈 Trending Elements
-                    </h3>
-                    <div className="subsection">
-                      <h4 className="subsection-title">🧪 Ingredients</h4>
-                      <div className="subsection-content">
-                        {analysis.trending.ingredients.length > 0 
-                          ? analysis.trending.ingredients.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
-                    </div>
-                    <div className="subsection">
-                      <h4 className="subsection-title">✨ Claims</h4>
-                      <div className="subsection-content">
-                        {analysis.trending.claims.length > 0 
-                          ? analysis.trending.claims.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
-                    </div>
-                    <div className="subsection">
-                      <h4 className="subsection-title">📂 Ingredients Categories</h4>
-                      <div className="subsection-content">
-                        {analysis.trending.ingredientCategories.length > 0 
-                          ? analysis.trending.ingredientCategories.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
+            <div className="report-content">
+              {activeFilter === 'trending' && (
+                <div className="trend-section">
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">🧪 Ingredients</h4>
+                    <div className="tags-container">
+                      {analysis.trending.ingredients.length > 0 ? (
+                        analysis.trending.ingredients.map((ingredient, index) => (
+                          <span key={index} className="trend-tag trending">{ingredient}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
                     </div>
                   </div>
-
-                  <div className="analysis-section">
-                    <h3 className="section-title">
-                      🚀 Emerging Opportunities
-                    </h3>
-                    <div className="subsection">
-                      <h4 className="subsection-title">🧪 Ingredients</h4>
-                      <div className="subsection-content">
-                        {analysis.emerging.ingredients.length > 0 
-                          ? analysis.emerging.ingredients.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">✨ Claims</h4>
+                    <div className="tags-container">
+                      {analysis.trending.claims.length > 0 ? (
+                        analysis.trending.claims.map((claim, index) => (
+                          <span key={index} className="trend-tag trending">{claim}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
                     </div>
-                    <div className="subsection">
-                      <h4 className="subsection-title">✨ Claims</h4>
-                      <div className="subsection-content">
-                        {analysis.emerging.claims.length > 0 
-                          ? analysis.emerging.claims.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
-                    </div>
-                    <div className="subsection">
-                      <h4 className="subsection-title">📂 Ingredients Categories</h4>
-                      <div className="subsection-content">
-                        {analysis.emerging.ingredientCategories.length > 0 
-                          ? analysis.emerging.ingredientCategories.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
+                  </div>
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">📂 Ingredient Categories</h4>
+                    <div className="tags-container">
+                      {analysis.trending.ingredientCategories.length > 0 ? (
+                        analysis.trending.ingredientCategories.map((category, index) => (
+                          <span key={index} className="trend-tag trending">{category}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
                     </div>
                   </div>
                 </div>
+              )}
 
-                {(analysis.declining.ingredients.length > 0 || analysis.declining.claims.length > 0) && (
-                  <div className="analysis-section">
-                    <h3 className="section-title">
-                      📉 Declining Trends
-                    </h3>
-                    <div className="subsection">
-                      <h4 className="subsection-title">🧪 Ingredients</h4>
-                      <div className="subsection-content">
-                        {analysis.declining.ingredients.length > 0 
-                          ? analysis.declining.ingredients.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
-                    </div>
-                    <div className="subsection">
-                      <h4 className="subsection-title">✨ Claims</h4>
-                      <div className="subsection-content">
-                        {analysis.declining.claims.length > 0 
-                          ? analysis.declining.claims.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
-                    </div>
-                    <div className="subsection">
-                      <h4 className="subsection-title">📂 Ingredients Categories</h4>
-                      <div className="subsection-content">
-                        {analysis.declining.ingredientCategories.length > 0 
-                          ? analysis.declining.ingredientCategories.join(', ')
-                          : 'None identified'
-                        }
-                      </div>
+              {activeFilter === 'emerging' && (
+                <div className="trend-section">
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">🧪 Ingredients</h4>
+                    <div className="tags-container">
+                      {analysis.emerging.ingredients.length > 0 ? (
+                        analysis.emerging.ingredients.map((ingredient, index) => (
+                          <span key={index} className="trend-tag emerging">{ingredient}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
                     </div>
                   </div>
-                )}
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">✨ Claims</h4>
+                    <div className="tags-container">
+                      {analysis.emerging.claims.length > 0 ? (
+                        analysis.emerging.claims.map((claim, index) => (
+                          <span key={index} className="trend-tag emerging">{claim}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">📂 Ingredient Categories</h4>
+                    <div className="tags-container">
+                      {analysis.emerging.ingredientCategories.length > 0 ? (
+                        analysis.emerging.ingredientCategories.map((category, index) => (
+                          <span key={index} className="trend-tag emerging">{category}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
-                {analysis.insights.length > 0 && (
-                  <div className="analysis-section">
-                    <h3 className="section-title">
-                      💡 Key Insights
-                    </h3>
+              {activeFilter === 'declining' && (
+                <div className="trend-section">
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">🧪 Ingredients</h4>
+                    <div className="tags-container">
+                      {analysis.declining.ingredients.length > 0 ? (
+                        analysis.declining.ingredients.map((ingredient, index) => (
+                          <span key={index} className="trend-tag declining">{ingredient}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">✨ Claims</h4>
+                    <div className="tags-container">
+                      {analysis.declining.claims.length > 0 ? (
+                        analysis.declining.claims.map((claim, index) => (
+                          <span key={index} className="trend-tag declining">{claim}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="tag-group">
+                    <h4 className="tag-group-title">📂 Ingredient Categories</h4>
+                    <div className="tags-container">
+                      {analysis.declining.ingredientCategories.length > 0 ? (
+                        analysis.declining.ingredientCategories.map((category, index) => (
+                          <span key={index} className="trend-tag declining">{category}</span>
+                        ))
+                      ) : (
+                        <span className="no-data">None identified</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeFilter === 'insights' && (
+                <div className="insights-section">
+                  {analysis.insights.length > 0 ? (
                     <div className="insights-grid">
                       {analysis.insights.map((insight, index) => (
-                        <div key={index} className="insight-card">
+                        <div key={index} className="insight-card enhanced">
                           <div className="insight-header">
-                            <div className="insight-icon">
-                              {insight.type === 'ingredient' ? '🧪' : insight.type === 'claim' ? '✨' : '📂'}
-                            </div>
-                            <div>
+                            <div className="insight-title-row">
+                              <div className="insight-icon">
+                                {insight.type === 'ingredient' ? '🧪' : insight.type === 'claim' ? '✨' : '📂'}
+                              </div>
                               <h4 className="insight-title">{insight.name}</h4>
-                              <p className="insight-fact">{insight.supportingFact}</p>
-                              {insight.studyReference && (
-                                <p className="insight-reference">
-                                  📚 {insight.studyReference}
-                                </p>
+                              <span className="insight-type-badge">{insight.type}</span>
+                              {insight.credibilityScore && (
+                                <div className="credibility-indicator">
+                                  <div className={`credibility-dot ${
+                                    insight.credibilityScore >= 80 ? 'high' : 
+                                    insight.credibilityScore >= 60 ? 'medium' : 'low'
+                                  }`}></div>
+                                  <span className="credibility-score">{insight.credibilityScore}% credible</span>
+                                </div>
                               )}
                             </div>
+                            <p className="insight-fact">{insight.supportingFact}</p>
                           </div>
+
+                          {/* Usage Metrics */}
+                          {insight.usageMetrics && (
+                            <div className="usage-metrics">
+                              <h5 className="metrics-title">📊 Usage Analytics</h5>
+                              <div className="metrics-grid">
+                                <div className="metric-item">
+                                  <div className="metric-value search">{insight.usageMetrics.searchVolume?.toLocaleString() || 'N/A'}</div>
+                                  <div className="metric-label">Search Volume</div>
+                                </div>
+                                <div className="metric-item">
+                                  <div className="metric-value trending">{insight.usageMetrics.trendingScore || 'N/A'}</div>
+                                  <div className="metric-label">Trending Score</div>
+                                </div>
+                                <div className="metric-item">
+                                  <div className="metric-value engagement">{insight.usageMetrics.userEngagement || 'N/A'}%</div>
+                                  <div className="metric-label">Engagement</div>
+                                </div>
+                                <div className="metric-item">
+                                  <div className="metric-value mentions">{insight.usageMetrics.recentMentions || 'N/A'}</div>
+                                  <div className="metric-label">Recent Mentions</div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Market Data */}
+                          {insight.marketData && (
+                            <div className="market-data enhanced">
+                              <h5 className="market-title">📈 Market Intelligence</h5>
+                              <div className="market-stats">
+                                {insight.marketData.adoptionRate && (
+                                  <div className="market-stat">
+                                    <span className="stat-label">Adoption Rate:</span>
+                                    <span className="stat-value">{insight.marketData.adoptionRate}</span>
+                                  </div>
+                                )}
+                                {insight.marketData.searchTrends && (
+                                  <div className="market-stat">
+                                    <span className="stat-label">Search Trends:</span>
+                                    <span className="stat-value">{insight.marketData.searchTrends}</span>
+                                  </div>
+                                )}
+                                {insight.marketData.marketGrowth && (
+                                  <div className="market-stat">
+                                    <span className="stat-label">Market Growth:</span>
+                                    <span className="stat-value">{insight.marketData.marketGrowth}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {insight.marketData.industryReports && insight.marketData.industryReports.length > 0 && (
+                                <div className="industry-reports">
+                                  <span className="stat-label">Industry Reports:</span>
+                                  <ul className="reports-list">
+                                    {insight.marketData.industryReports.map((report, idx) => (
+                                      <li key={idx} className="report-item">• {report}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Study Reference */}
+                          {insight.studyReference && (
+                            <div className="study-reference">
+                              <h5 className="reference-title">📚 Primary Reference</h5>
+                              <p className="reference-text">{insight.studyReference}</p>
+                            </div>
+                          )}
+
+                          {/* Supporting Studies */}
+                          {insight.supportingStudies && insight.supportingStudies.length > 0 && (
+                            <div className="supporting-studies">
+                              <h5 className="studies-title">🔬 Supporting Studies</h5>
+                              <div className="studies-list">
+                                {insight.supportingStudies.map((study, studyIndex) => (
+                                  <div key={studyIndex} className="study-item">
+                                    <div className="study-header">
+                                      <h6 className="study-title">{study.title}</h6>
+                                      {study.relevanceScore && (
+                                        <span className="relevance-score">{study.relevanceScore}% relevant</span>
+                                      )}
+                                    </div>
+                                    {study.authors && (
+                                      <p className="study-meta">
+                                        <strong>Authors:</strong> {study.authors}
+                                      </p>
+                                    )}
+                                    <div className="study-details">
+                                      {study.journal && <span><strong>Journal:</strong> {study.journal}</span>}
+                                      {study.year && <span><strong>Year:</strong> {study.year}</span>}
+                                      {study.doi && (
+                                        <span>
+                                          <strong>DOI:</strong> 
+                                          <a href={`https://doi.org/${study.doi}`} target="_blank" rel="noopener noreferrer" 
+                                             className="doi-link">
+                                            {study.doi}
+                                          </a>
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="study-summary">{study.summary}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="modal-footer">
-                <div className="modal-footer-text">
-                  Powered by Product Analytics AI
+                  ) : (
+                    <div className="no-insights">
+                      <p>No detailed insights available for this analysis.</p>
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => setShowReportModal(false)}
-                  className="close-modal-button"
-                >
-                  Close Report
-                </button>
-              </div>
+              )}
             </div>
           </div>
         )}

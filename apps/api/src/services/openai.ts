@@ -22,6 +22,22 @@ interface AnalysisResult {
     name: string;
     supportingFact: string;
     studyReference?: string;
+    usageMetrics?: {
+      searchVolume?: number;
+      trendingScore?: number;
+      userEngagement?: number;
+      recentMentions?: number;
+    };
+    credibilityScore?: number;
+    supportingStudies?: Array<{
+      title: string;
+      authors?: string;
+      journal?: string;
+      year?: number;
+      doi?: string;
+      summary: string;
+      relevanceScore?: number;
+    }>;
   }>;
 }
 
@@ -88,7 +104,25 @@ Return your analysis in the following JSON format with separate arrays for each 
       "type": "ingredient|claim|category",
       "name": "item name",
       "supportingFact": "brief explanation with supporting data",
-      "studyReference": "Reference to relevant scientific study or research (e.g., 'Journal of Cosmetic Dermatology, 2023' or 'Clinical study by XYZ Research Institute')"
+      "studyReference": "Reference to relevant scientific study or research",
+      "usageMetrics": {
+        "searchVolume": 850,
+        "trendingScore": 92,
+        "userEngagement": 78,
+        "recentMentions": 156
+      },
+      "credibilityScore": 87,
+      "supportingStudies": [
+        {
+          "title": "Study title",
+          "authors": "Author names",
+          "journal": "Journal name",
+          "year": 2023,
+          "doi": "10.1000/example",
+          "summary": "Brief study summary",
+          "relevanceScore": 95
+        }
+      ]
     }
   ]
 }
@@ -101,11 +135,17 @@ ANALYSIS RULES:
 - If a category (ingredients/claims/ingredientCategories) has no relevant items from the data, return an empty array []
 - Base analysis strictly on the provided product information - names, brands, categories, ratings, ingredients, ingredient categories, and claims
 - Provide specific insights with supporting facts like usage frequency, average ratings, or market positioning from the actual data
-- For each insight, include a relevant scientific study reference when possible (journal articles, clinical studies, dermatological research, etc.)
-- Study references should be credible and relevant to cosmetic/skincare science
-- If no specific study is available for an insight, you may omit the studyReference field
+- For each insight, include:
+  * A credibility score (0-100) based on scientific evidence and market validation
+  * Usage metrics including estimated search volume, trending score, user engagement, and recent mentions
+  * Supporting studies with complete bibliographic information, relevance scores, and brief summaries
+  * Credible scientific references from peer-reviewed journals, clinical studies, or dermatological research
+- All supporting studies must be real, credible, and relevant to cosmetic/skincare science
+- Usage metrics should reflect realistic market data and search trends
+- Credibility scores should consider: scientific backing (40%), market adoption (30%), safety profile (20%), regulatory approval (10%)
+- If no specific studies are available for an insight, provide general category studies or omit supportingStudies field
 
-Be both COMPREHENSIVE (don't miss anything) and ACCURATE (don't add anything) when analyzing the provided data. Support insights with credible scientific references when available.`;
+Be both COMPREHENSIVE (don't miss anything) and ACCURATE (don't add anything) when analyzing the provided data. Provide realistic usage metrics and credible scientific backing to enhance insight credibility.`;
   }
 
   async analyzeProducts(products: Product[]): Promise<AnalysisResult> {
