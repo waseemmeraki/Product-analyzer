@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { Product } from './database';
+import { AnalysisCacheService } from './analysisCache';
 
 interface AnalysisResult {
   trending: {
@@ -43,22 +44,27 @@ interface AnalysisResult {
 
 class OpenAIService {
   private client: OpenAI;
+  private cacheService: AnalysisCacheService;
 
   constructor() {
     this.client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
+    this.cacheService = new AnalysisCacheService();
   }
 
   private formatProductsForPrompt(products: Product[]): string {
-    return products.map(product => {
-      return `Product: ${product.Name}
+    // Sort products by ID for consistent ordering
+    const sortedProducts = [...products].sort((a, b) => a.Id.localeCompare(b.Id));
+    
+    return sortedProducts.map((product, index) => {
+      return `Product ${index + 1}: ${product.Name}
 Brand: ${product.Brand}
 Category: ${product.Category}
-Rating: ${product.Rating}/5 (${product.ReviewCount} reviews)
-Ingredients: ${product.Ingredients}
-Ingredient Categories: ${product.IngredientCategories}
-Claims: ${product.Claims}
+Rating: ${Math.round(product.Rating * 10) / 10}/5 (${product.ReviewCount} reviews)
+Ingredients: ${product.Ingredients?.trim() || 'Not specified'}
+Ingredient Categories: ${product.IngredientCategories?.trim() || 'Not specified'}
+Claims: ${product.Claims?.trim() || 'Not specified'}
 ---`;
     }).join('\n');
   }
@@ -149,23 +155,48 @@ Be both COMPREHENSIVE (don't miss anything) and ACCURATE (don't add anything) wh
   }
 
   async analyzeProducts(products: Product[]): Promise<AnalysisResult> {
+    // Check cache first
+    const cachedResult = this.cacheService.getCachedResult(products);
+    if (cachedResult) {
+      console.log('Returning cached analysis result');
+      // Remove cache metadata before returning
+      const { cachedAt, expiresAt, ...result } = cachedResult;
+      return result;
+    }
+
+    // Clean up expired cache entries periodically
+    this.cacheService.cleanupExpiredEntries();
+
     const prompt = this.createAnalysisPrompt(products);
 
     try {
+      console.log('Generating new analysis result from OpenAI');
       const response = await this.client.chat.completions.create({
         model: 'gpt-4o',
         messages: [
           {
             role: 'system',
-            content: 'You are an expert cosmetic and skincare analyst. Analyze product data to identify trends in ingredients, claims, and formulations. Always respond with valid JSON in the exact format requested.'
+            content: `You are an expert cosmetic and skincare analyst with a focus on consistency and scientific accuracy. 
+
+CRITICAL REQUIREMENTS FOR CONSISTENT ANALYSIS:
+1. Always analyze products in numerical order (Product 1, Product 2, etc.)
+2. Base your analysis ONLY on the explicit data provided - do not infer or assume
+3. Use consistent criteria for categorizing trends:
+   - TRENDING: Items appearing in 3+ products OR in products with 4.0+ rating
+   - EMERGING: Items appearing in 1-2 products with potential growth indicators
+   - DECLINING: Items appearing in products with <3.5 rating OR outdated formulations
+4. Generate insights based on factual patterns in the data
+5. Always respond with valid JSON in the exact format requested
+6. Maintain scientific rigor - only include credible studies and realistic metrics`
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.3,
-        max_tokens: 2000,
+        temperature: 0.1, // Lower temperature for more consistent results
+        max_tokens: 3000,
+        seed: this.generateSeed(products), // Use deterministic seed based on product data
       });
 
       const content = response.choices[0]?.message?.content;
@@ -184,15 +215,89 @@ Be both COMPREHENSIVE (don't miss anything) and ACCURATE (don't add anything) wh
       const analysisResult = JSON.parse(jsonContent) as AnalysisResult;
       
       // Validate the structure
-      if (!analysisResult.trending?.ingredients || !analysisResult.emerging?.ingredients || !analysisResult.declining?.ingredients || !analysisResult.insights) {
+      if (!this.validateAnalysisResult(analysisResult)) {
         throw new Error('Invalid response structure from OpenAI');
       }
+
+      // Cache the result for future requests
+      this.cacheService.setCachedResult(products, analysisResult);
 
       return analysisResult;
     } catch (error) {
       console.error('Error analyzing products with OpenAI:', error);
       throw new Error('Failed to analyze products');
     }
+  }
+
+  /**
+   * Generate a deterministic seed based on product data for consistent OpenAI responses
+   */
+  private generateSeed(products: Product[]): number {
+    const sortedProducts = [...products].sort((a, b) => a.Id.localeCompare(b.Id));
+    const dataString = sortedProducts.map(p => `${p.Id}${p.Name}${p.Brand}`).join('');
+    
+    // Create a simple hash to generate a consistent seed
+    let hash = 0;
+    for (let i = 0; i < dataString.length; i++) {
+      const char = dataString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Ensure positive seed within valid range
+    return Math.abs(hash) % 2147483647;
+  }
+
+  /**
+   * Validate analysis result structure and content
+   */
+  private validateAnalysisResult(result: any): result is AnalysisResult {
+    if (!result || typeof result !== 'object') return false;
+    
+    // Check required top-level properties
+    const requiredSections = ['trending', 'emerging', 'declining', 'insights'];
+    for (const section of requiredSections) {
+      if (!result[section]) return false;
+    }
+
+    // Check section structure
+    const trendSections = ['trending', 'emerging', 'declining'];
+    for (const section of trendSections) {
+      const sectionData = result[section];
+      if (!sectionData.ingredients || !Array.isArray(sectionData.ingredients)) return false;
+      if (!sectionData.claims || !Array.isArray(sectionData.claims)) return false;
+      if (!sectionData.ingredientCategories || !Array.isArray(sectionData.ingredientCategories)) return false;
+    }
+
+    // Check insights structure
+    if (!Array.isArray(result.insights)) return false;
+    for (const insight of result.insights) {
+      if (!insight.type || !insight.name || !insight.supportingFact) return false;
+      if (!['ingredient', 'claim', 'category'].includes(insight.type)) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    return this.cacheService.getCacheStats();
+  }
+
+  /**
+   * Clear all cache entries
+   */
+  clearCache(): void {
+    this.cacheService.clearCache();
+  }
+
+  /**
+   * Clean up expired cache entries
+   */
+  cleanupExpiredEntries(): void {
+    this.cacheService.cleanupExpiredEntries();
   }
 }
 

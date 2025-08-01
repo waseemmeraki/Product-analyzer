@@ -104,17 +104,60 @@ class AnalysisController {
       // Test OpenAI API key presence
       const openaiConfigured = !!process.env.OPENAI_API_KEY;
 
+      // Get cache statistics
+      const cacheStats = this.openaiService.getCacheStats();
+
       res.json({
         status: 'OK',
         services: {
           database: 'connected',
           openai: openaiConfigured ? 'configured' : 'not configured'
         },
+        cache: cacheStats,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
       res.status(500).json({
         status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
+
+  // Cache management endpoint
+  manageCacheStats = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const action = req.query.action as string;
+      
+      if (action === 'clear') {
+        this.openaiService.clearCache();
+        res.json({
+          success: true,
+          message: 'Analysis cache cleared successfully',
+          timestamp: new Date().toISOString()
+        });
+      } else if (action === 'cleanup') {
+        this.openaiService.cleanupExpiredEntries();
+        const stats = this.openaiService.getCacheStats();
+        res.json({
+          success: true,
+          message: 'Expired cache entries cleaned up',
+          cache: stats,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        // Default: return cache statistics
+        const stats = this.openaiService.getCacheStats();
+        res.json({
+          success: true,
+          cache: stats,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
