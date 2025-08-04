@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { authRoutes } from './routes/auth';
 import { analyticsRoutes } from './routes/analytics';
 import { analysisRoutes } from './routes/analysis';
+import { scraperRoutes } from './routes/scraper';
 import productRoutes from './routes/products';
 import { setupSimpleSwagger } from './swagger-simple';
 
@@ -55,6 +56,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/analysis', analysisRoutes);
+app.use('/api/scraper', scraperRoutes);
 app.use('/api/products', productRoutes);
 
 app.get('/test-swagger', (req, res) => {

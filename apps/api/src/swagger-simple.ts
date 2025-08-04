@@ -458,6 +458,330 @@ const swaggerDocument = {
           }
         }
       }
+    },
+    '/api/scraper/health': {
+      get: {
+        summary: 'Health check for scraper service',
+        tags: ['Scraper'],
+        responses: {
+          '200': {
+            description: 'Scraper service health status'
+          }
+        }
+      }
+    },
+    '/api/scraper/quick': {
+      get: {
+        summary: 'Quick scrape a website',
+        tags: ['Scraper'],
+        parameters: [
+          {
+            name: 'url',
+            in: 'query',
+            required: true,
+            schema: {
+              type: 'string'
+            }
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Scraping results'
+          }
+        }
+      }
+    },
+    '/api/scraper/scrape': {
+      post: {
+        summary: 'Scrape website with custom selectors',
+        tags: ['Scraper'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  url: {
+                    type: 'string'
+                  },
+                  selectors: {
+                    type: 'object'
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Scraping successful'
+          }
+        }
+      }
+    },
+    '/api/scraper/sephora': {
+      post: {
+        summary: 'Scrape Sephora products',
+        tags: ['Scraper'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  categoryUrl: {
+                    type: 'string'
+                  },
+                  limit: {
+                    type: 'integer'
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Products scraped successfully'
+          }
+        }
+      }
+    },
+    '/api/scraper/ulta': {
+      post: {
+        summary: 'Scrape Ulta products from a category page',
+        tags: ['Scraper'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['categoryUrl'],
+                properties: {
+                  categoryUrl: {
+                    type: 'string',
+                    format: 'uri',
+                    description: 'Ulta category URL to scrape',
+                    example: 'https://www.ulta.com/shop/hair/shampoo-conditioner/shampoo'
+                  },
+                  limit: {
+                    type: 'integer',
+                    minimum: 1,
+                    maximum: 50,
+                    default: 10,
+                    description: 'Maximum number of products to scrape'
+                  },
+                  options: {
+                    type: 'object',
+                    properties: {
+                      headless: {
+                        type: 'boolean',
+                        default: true
+                      },
+                      timeout: {
+                        type: 'integer',
+                        minimum: 30000,
+                        maximum: 120000,
+                        default: 60000
+                      },
+                      maxRetries: {
+                        type: 'integer',
+                        minimum: 1,
+                        maximum: 3,
+                        default: 2
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Ulta products scraped successfully'
+          },
+          '400': {
+            description: 'Invalid request parameters'
+          },
+          '500': {
+            description: 'Scraping failed'
+          }
+        }
+      }
+    },
+    '/api/scraper/ulta/save': {
+      post: {
+        summary: 'Scrape Ulta products and save to database',
+        tags: ['Scraper'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['categoryUrl'],
+                properties: {
+                  categoryUrl: {
+                    type: 'string',
+                    format: 'uri',
+                    description: 'Ulta category URL to scrape',
+                    example: 'https://www.ulta.com/shop/hair/shampoo-conditioner/shampoo'
+                  },
+                  limit: {
+                    type: 'integer',
+                    minimum: 1,
+                    maximum: 50,
+                    default: 10,
+                    description: 'Maximum number of products to scrape and save'
+                  },
+                  options: {
+                    type: 'object',
+                    properties: {
+                      headless: {
+                        type: 'boolean',
+                        default: true
+                      },
+                      timeout: {
+                        type: 'integer',
+                        minimum: 30000,
+                        maximum: 120000,
+                        default: 60000
+                      },
+                      maxRetries: {
+                        type: 'integer',
+                        minimum: 1,
+                        maximum: 3,
+                        default: 2
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Products scraped and saved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean'
+                    },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        scrapedProducts: {
+                          type: 'array',
+                          items: {
+                            type: 'object'
+                          }
+                        },
+                        totalProcessed: {
+                          type: 'integer',
+                          description: 'Total number of products processed'
+                        },
+                        newProductsAdded: {
+                          type: 'integer',
+                          description: 'Number of new products added to database'
+                        },
+                        duplicatesSkipped: {
+                          type: 'integer',
+                          description: 'Number of duplicate products skipped'
+                        },
+                        savedProductIds: {
+                          type: 'array',
+                          items: {
+                            type: 'string'
+                          },
+                          description: 'Array of product IDs (includes both new and existing)'
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '400': {
+            description: 'Invalid request parameters'
+          },
+          '500': {
+            description: 'Scraping or saving failed'
+          }
+        }
+      }
+    },
+    '/api/scraper/categorize-ingredients': {
+      post: {
+        summary: 'Test ingredient categorization with OpenAI',
+        tags: ['Scraper'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['ingredients'],
+                properties: {
+                  ingredients: {
+                    type: 'string',
+                    description: 'Comma-separated list of ingredients to categorize',
+                    example: 'Water, Glycerin, Niacinamide, Hyaluronic Acid, Vitamin C, Fragrance'
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Ingredients categorized successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: {
+                      type: 'boolean'
+                    },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        ingredients: {
+                          type: 'string'
+                        },
+                        categories: {
+                          type: 'array',
+                          items: {
+                            type: 'string'
+                          }
+                        },
+                        categoriesString: {
+                          type: 'string'
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '400': {
+            description: 'Invalid request parameters'
+          },
+          '500': {
+            description: 'Categorization failed'
+          }
+        }
+      }
     }
   }
 };

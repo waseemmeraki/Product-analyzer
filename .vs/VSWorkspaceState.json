@@ -1,0 +1,18 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\apps",
+    "\\apps\\api",
+    "\\apps\\api\\src",
+    "\\apps\\api\\src\\services",
+    "\\apps\\web",
+    "\\apps\\web\\src",
+    "\\apps\\web\\src\\app",
+    "\\apps\\web\\src\\app\\product-selector",
+    "\\packages",
+    "\\packages\\types",
+    "\\packages\\types\\src"
+  ],
+  "SelectedNode": "\\apps\\api\\tsconfig.json",
+  "PreviewInSolutionExplorer": false
+}

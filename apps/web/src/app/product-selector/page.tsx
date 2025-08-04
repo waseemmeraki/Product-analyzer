@@ -74,6 +74,15 @@ export default function ProductSelectorPage() {
   const [error, setError] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<'trending' | 'emerging' | 'declining' | 'insights'>('trending');
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  
+  // Scraping states
+  const [scrapingUrl, setScrapingUrl] = useState<string>('');
+  const [scrapingLoading, setScrapingLoading] = useState(false);
+  const [scrapingResult, setScrapingResult] = useState<{
+    scrapedCount: number;
+    newProductsAdded: number;
+    duplicatesSkipped: number;
+  } | null>(null);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
@@ -192,6 +201,67 @@ export default function ProductSelectorPage() {
     }
   };
 
+  const scrapeUltaProducts = async () => {
+    if (!scrapingUrl.trim()) {
+      setError('Please enter a valid Ulta URL');
+      return;
+    }
+
+    // Basic URL validation
+    try {
+      const url = new URL(scrapingUrl);
+      if (!url.hostname.includes('ulta.com')) {
+        setError('Please enter a valid Ulta.com URL');
+        return;
+      }
+    } catch {
+      setError('Please enter a valid URL');
+      return;
+    }
+
+    setScrapingLoading(true);
+    setError('');
+    setScrapingResult(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/scraper/ulta/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          categoryUrl: scrapingUrl,
+          limit: 10
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setScrapingResult({
+          scrapedCount: data.meta.scrapedCount,
+          newProductsAdded: data.meta.newProductsAdded,
+          duplicatesSkipped: data.meta.duplicatesSkipped
+        });
+        
+        // Refresh brands list to show new data
+        await fetchBrands();
+        
+        // Clear form
+        setScrapingUrl('');
+        
+        // Show success message
+        setTimeout(() => setScrapingResult(null), 10000); // Clear after 10 seconds
+      } else {
+        setError(data.error || 'Scraping failed');
+      }
+    } catch (error) {
+      console.error('Error scraping products:', error);
+      setError('Failed to scrape products');
+    } finally {
+      setScrapingLoading(false);
+    }
+  };
+
 
   if (isInitialLoading) {
     return (
@@ -222,6 +292,56 @@ export default function ProductSelectorPage() {
             ⚠ {error}
           </div>
         )}
+
+        {/* Scraping success message */}
+        {scrapingResult && (
+          <div className="success-message">
+            ✅ Successfully scraped {scrapingResult.scrapedCount} products! 
+            Added {scrapingResult.newProductsAdded} new products, 
+            skipped {scrapingResult.duplicatesSkipped} duplicates.
+          </div>
+        )}
+
+        {/* Ulta Scraping Section */}
+        <div className="scraping-section">
+          <h2 className="section-title">🕷️ Scrape New Products from Ulta</h2>
+          <div className="scraping-card">
+            <div className="scraping-form">
+              <div className="form-group">
+                <label htmlFor="scrapingUrl" className="form-label">
+                  Ulta Category URL
+                </label>
+                <input
+                  id="scrapingUrl"
+                  type="url"
+                  value={scrapingUrl}
+                  onChange={(e) => setScrapingUrl(e.target.value)}
+                  placeholder="https://www.ulta.com/shop/hair/shampoo-conditioner/shampoo"
+                  className="url-input"
+                  disabled={scrapingLoading}
+                />
+                <div className="input-hint">
+                  Enter a Ulta category page URL to scrape products and save them to the database
+                </div>
+              </div>
+
+              <button
+                onClick={scrapeUltaProducts}
+                disabled={!scrapingUrl.trim() || scrapingLoading}
+                className="scrape-button"
+              >
+                {scrapingLoading ? (
+                  <>
+                    <div className="loading-spinner"></div>
+                    <span>Scraping Products...</span>
+                  </>
+                ) : (
+                  `🚀 Scrape 10 Products`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="controls-grid">
           <div className="control-card">

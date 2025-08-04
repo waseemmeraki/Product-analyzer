@@ -299,6 +299,81 @@ CRITICAL REQUIREMENTS FOR CONSISTENT ANALYSIS:
   cleanupExpiredEntries(): void {
     this.cacheService.cleanupExpiredEntries();
   }
+
+  /**
+   * Categorize ingredients using OpenAI to generate ingredient categories
+   */
+  async categorizeIngredients(ingredients: string): Promise<string> {
+    if (!ingredients || ingredients.trim().length === 0) {
+      return '';
+    }
+
+    const prompt = `Analyze the following cosmetic/skincare product ingredients and categorize them into appropriate ingredient categories. 
+
+Ingredients: ${ingredients}
+
+Please categorize these ingredients into functional categories commonly used in cosmetics and skincare. Return ONLY a comma-separated list of categories (no explanations, no numbering, no extra text).
+
+Examples of good categories:
+- Humectants
+- Emollients  
+- Antioxidants
+- Active ingredients
+- Preservatives
+- Surfactants
+- Thickeners
+- pH adjusters
+- Fragrances
+- Plant extracts
+- Vitamins
+- Peptides
+- Exfoliants
+- UV filters
+- Colorants
+
+Focus on the PRIMARY functional role of each ingredient. If an ingredient serves multiple functions, choose the most important one. Return categories that are most relevant to the ingredients provided.`;
+
+    try {
+      const response = await this.client.chat.completions.create({
+        model: 'gpt-3.5-turbo', // Using cheaper model for simple categorization
+        messages: [
+          {
+            role: 'system',
+            content: `You are a cosmetic chemist expert specializing in ingredient categorization. Always return ONLY comma-separated category names with no additional text, explanations, or formatting. Be concise and accurate.`
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3, // Low temperature for consistency
+        max_tokens: 200, // Short response needed
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No content received from OpenAI');
+      }
+
+      // Clean up the response and ensure it's comma-separated
+      const categories = content
+        .trim()
+        .replace(/^\d+\.\s*/gm, '') // Remove numbering
+        .replace(/[-•*]\s*/g, '') // Remove bullet points
+        .replace(/\n/g, ', ') // Replace newlines with commas
+        .replace(/,\s*,/g, ',') // Remove double commas
+        .replace(/,\s*$/, '') // Remove trailing comma
+        .replace(/^\s*,/, '') // Remove leading comma
+        .trim();
+
+      return categories;
+
+    } catch (error) {
+      console.error('Error categorizing ingredients with OpenAI:', error);
+      // Return empty string on error rather than throwing
+      return '';
+    }
+  }
 }
 
 export { OpenAIService, AnalysisResult };
