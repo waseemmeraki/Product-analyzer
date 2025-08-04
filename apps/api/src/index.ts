@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import { errorHandler } from './middleware/errorHandler';
 import { authRoutes } from './routes/auth';
@@ -12,7 +13,8 @@ import { scraperRoutes } from './routes/scraper';
 import productRoutes from './routes/products';
 import { setupSimpleSwagger } from './swagger-simple';
 
-dotenv.config();
+// Load API-specific environment variables
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3002;

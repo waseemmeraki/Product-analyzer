@@ -1,9 +1,10 @@
-import sql from 'mssql';
+const { sequelize, Product } = require('@product-analytics/database');
+import { Op } from 'sequelize';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-interface Product {
+interface ProductInterface {
   Id: string;
   Name: string;
   Brand: string;
@@ -16,126 +17,89 @@ interface Product {
 }
 
 class DatabaseService {
-  private config: sql.config;
-  private pool: sql.ConnectionPool | null = null;
-
   constructor() {
-    const connectionString = process.env.DATABASE_URL || '';
-    
-    // Parse connection string for SQL Server
-    const match = connectionString.match(/Server=([^;]+);Database=([^;]+);User ID=([^;]+);Password=([^;]+);?/);
-    
-    if (match) {
-      const [, serverPart, database, user, password] = match;
-      
-      // Handle server,port format (e.g., "localhost,1433" or just "server.database.windows.net")
-      const [server, port] = serverPart.includes(',') ? serverPart.split(',') : [serverPart, '1433'];
-      
-      this.config = {
-        server,
-        port: parseInt(port),
-        database,
-        user,
-        password,
-        options: {
-          encrypt: true,
-          trustServerCertificate: true,
-          enableArithAbort: true,
-          connectTimeout: 60000,
-          requestTimeout: 60000,
-        },
-        pool: {
-          max: 10,
-          min: 0,
-          idleTimeoutMillis: 30000,
-        },
-      };
-    } else {
-      throw new Error(`Invalid DATABASE_URL format: ${connectionString}`);
+    // Initialize Sequelize connection - already handled in connection.js
+  }
+
+  async testConnection(): Promise<void> {
+    try {
+      await sequelize.authenticate();
+      console.log('Database connection has been established successfully.');
+    } catch (error) {
+      console.error('Unable to connect to the database:', error);
+      throw error;
     }
   }
 
-  async connect(): Promise<sql.ConnectionPool> {
-    if (!this.pool) {
-      this.pool = new sql.ConnectionPool(this.config);
-      await this.pool.connect();
-    }
-    return this.pool;
-  }
-
-  async getProductsByIds(productIds: string[]): Promise<Product[]> {
-    const pool = await this.connect();
-    
-    const placeholders = productIds.map((_, index) => `@id${index}`).join(',');
-    const query = `
-      SELECT Id, Name, Brand, Category, Ingredients, IngredientCategories, Claims, Rating, ReviewCount
-      FROM Products
-      WHERE Id IN (${placeholders})
-    `;
-    
-    const request = pool.request();
-    productIds.forEach((id, index) => {
-      request.input(`id${index}`, sql.UniqueIdentifier, id);
+  async getProductsByIds(productIds: string[]): Promise<ProductInterface[]> {
+    const products = await Product.findAll({
+      where: {
+        Id: {
+          [Op.in]: productIds
+        }
+      }
     });
     
-    const result = await request.query(query);
-    return result.recordset;
+    return products.map((p: any) => p.toJSON()) as ProductInterface[];
   }
 
   async getBrands(): Promise<string[]> {
-    const pool = await this.connect();
-    const query = `SELECT DISTINCT Brand FROM Products WHERE Brand IS NOT NULL ORDER BY Brand`;
-    const result = await pool.request().query(query);
-    return result.recordset.map(row => row.Brand);
+    const results = await Product.findAll({
+      attributes: ['Brand'],
+      where: {
+        Brand: {
+          [Op.not]: null
+        }
+      },
+      group: ['Brand'],
+      order: [['Brand', 'ASC']]
+    });
+    
+    return results.map((p: any) => p.getDataValue('Brand'));
   }
 
   async getCategoriesByBrand(brand: string): Promise<string[]> {
-    const pool = await this.connect();
-    const query = `SELECT DISTINCT Category FROM Products WHERE Brand = @brand AND Category IS NOT NULL ORDER BY Category`;
-    const request = pool.request();
-    request.input('brand', sql.NVarChar, brand);
-    const result = await request.query(query);
-    return result.recordset.map(row => row.Category);
+    const results = await Product.findAll({
+      attributes: ['Category'],
+      where: {
+        Brand: brand,
+        Category: {
+          [Op.not]: null
+        }
+      },
+      group: ['Category'],
+      order: [['Category', 'ASC']]
+    });
+    
+    return results.map((p: any) => p.getDataValue('Category'));
   }
 
-  async getProductsByBrandAndCategory(brand: string, category: string): Promise<Product[]> {
-    const pool = await this.connect();
-    const query = `
-      SELECT Id, Name, Brand, Category, Ingredients, IngredientCategories, Claims, Rating, ReviewCount
-      FROM Products
-      WHERE Brand = @brand AND Category = @category
-      ORDER BY Name
-    `;
-    const request = pool.request();
-    request.input('brand', sql.NVarChar, brand);
-    request.input('category', sql.NVarChar, category);
-    const result = await request.query(query);
-    return result.recordset;
+  async getProductsByBrandAndCategory(brand: string, category: string): Promise<ProductInterface[]> {
+    const products = await Product.findAll({
+      where: {
+        Brand: brand,
+        Category: category
+      },
+      order: [['Name', 'ASC']]
+    });
+    
+    return products.map((p: any) => p.toJSON()) as ProductInterface[];
   }
 
   async checkProductExists(name: string, brand: string, category: string): Promise<string | null> {
-    const pool = await this.connect();
+    const product = await Product.findOne({
+      attributes: ['Id'],
+      where: {
+        Name: name,
+        Brand: brand,
+        Category: category
+      }
+    });
     
-    const query = `
-      SELECT Id FROM Products 
-      WHERE Name = @name AND Brand = @brand AND Category = @category
-    `;
-    
-    const request = pool.request();
-    request.input('name', sql.NVarChar, name);
-    request.input('brand', sql.NVarChar, brand);
-    request.input('category', sql.NVarChar, category);
-    
-    const result = await request.query(query);
-    
-    if (result.recordset.length > 0) {
-      return result.recordset[0].Id;
-    }
-    
-    return null;
+    return product ? product.getDataValue('Id') : null;
   }
 
-  async insertProduct(product: Omit<Product, 'Id'> & { Id?: string }): Promise<string> {
+  async insertProduct(product: Omit<ProductInterface, 'Id'> & { Id?: string }): Promise<string> {
     // Check if product already exists
     const existingProductId = await this.checkProductExists(product.Name, product.Brand, product.Category);
     
@@ -144,31 +108,25 @@ class DatabaseService {
       return existingProductId;
     }
     
-    const pool = await this.connect();
     const productId = product.Id || this.generateUUID();
     
-    const query = `
-      INSERT INTO Products (Id, Name, Brand, Category, Ingredients, IngredientCategories, Claims, Rating, ReviewCount)
-      VALUES (@id, @name, @brand, @category, @ingredients, @ingredientCategories, @claims, @rating, @reviewCount)
-    `;
+    const newProduct = await Product.create({
+      Id: productId,
+      Name: product.Name,
+      Brand: product.Brand,
+      Category: product.Category,
+      Ingredients: product.Ingredients,
+      IngredientCategories: product.IngredientCategories,
+      Claims: product.Claims,
+      Rating: product.Rating,
+      ReviewCount: product.ReviewCount
+    });
     
-    const request = pool.request();
-    request.input('id', sql.UniqueIdentifier, productId);
-    request.input('name', sql.NVarChar, product.Name);
-    request.input('brand', sql.NVarChar, product.Brand);
-    request.input('category', sql.NVarChar, product.Category);
-    request.input('ingredients', sql.NVarChar, product.Ingredients);
-    request.input('ingredientCategories', sql.NVarChar, product.IngredientCategories);
-    request.input('claims', sql.NVarChar, product.Claims);
-    request.input('rating', sql.Float, product.Rating);
-    request.input('reviewCount', sql.Int, product.ReviewCount);
-    
-    await request.query(query);
     console.log(`Inserted new product: ${product.Name} (${product.Brand} - ${product.Category})`);
-    return productId;
+    return newProduct.getDataValue('Id');
   }
 
-  async insertProducts(products: (Omit<Product, 'Id'> & { Id?: string })[]): Promise<{
+  async insertProducts(products: (Omit<ProductInterface, 'Id'> & { Id?: string })[]): Promise<{
     insertedIds: string[];
     newCount: number;
     duplicateCount: number;
@@ -212,11 +170,9 @@ class DatabaseService {
   }
 
   async close(): Promise<void> {
-    if (this.pool) {
-      await this.pool.close();
-      this.pool = null;
-    }
+    // Don't close the connection as it's shared across the application
+    // await sequelize.close();
   }
 }
 
-export { DatabaseService, Product };
+export { DatabaseService, ProductInterface as Product };

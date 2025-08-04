@@ -2,45 +2,26 @@ const { Sequelize } = require('sequelize');
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Load .env from project root
+// Load .env from API directory first, then fallback to root
+dotenv.config({ path: path.join(__dirname, '../../../apps/api/.env') });
 dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
-// Parse Azure SQL connection string
+// Parse MySQL connection string
 const connectionString = process.env.DATABASE_URL || '';
 console.log('Connection string:', connectionString);
-const connectionMatch = connectionString.match(/Server=([^;]+);Database=([^;]+);User ID=([^;]+);Password=([^;]+);/);
+const mysqlMatch = connectionString.match(/mysql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
 
 let sequelize;
 
-if (connectionMatch) {
-  const [, host, database, username, password] = connectionMatch;
+if (mysqlMatch) {
+  const [, username, password, host, port, database] = mysqlMatch;
   
   sequelize = new Sequelize(database, username, password, {
     host: host,
-    port: 1433,
-    dialect: 'mssql',
-    dialectModule: require('tedious'),
+    port: parseInt(port),
+    dialect: 'mysql',
     dialectOptions: {
-      options: {
-        encrypt: true,
-        trustServerCertificate: true,
-        enableArithAbort: true,
-        instanceName: '',
-        useUTC: false,
-        dateFirst: 1,
-        connectTimeout: 60000,
-        requestTimeout: 60000,
-        cancelTimeout: 5000,
-        packetSize: 4096,
-        useColumnNames: false,
-        columnNameReplacer: false,
-        debug: {
-          packet: false,
-          data: false,
-          payload: false,
-          token: false
-        }
-      },
+      charset: 'utf8mb4',
     },
     pool: {
       max: 5,

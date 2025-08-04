@@ -99,7 +99,7 @@ class AnalysisController {
   healthCheck = async (req: Request, res: Response): Promise<void> => {
     try {
       // Test database connection
-      const dbTest = await this.databaseService.connect();
+      await this.databaseService.testConnection();
       
       // Test OpenAI API key presence
       const openaiConfigured = !!process.env.OPENAI_API_KEY;

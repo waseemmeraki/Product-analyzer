@@ -90,7 +90,7 @@ export default function AnalysisPage() {
       setSelectedProducts([]);
       setAnalysis(null);
     }
-  }, [selectedCategory]);
+  }, [selectedBrand, selectedCategory]);
 
   const fetchBrands = async () => {
     try {

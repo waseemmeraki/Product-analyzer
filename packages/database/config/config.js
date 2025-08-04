@@ -1,28 +1,24 @@
 require('dotenv').config();
 
-// Parse Azure SQL connection string
+// Parse MySQL connection string
 const connectionString = process.env.DATABASE_URL || '';
-const connectionMatch = connectionString.match(/Server=([^;]+);Database=([^;]+);User ID=([^;]+);Password=([^;]+);/);
+const mysqlMatch = connectionString.match(/mysql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
 
 let config = {};
 
-if (connectionMatch) {
-  const [, host, database, username, password] = connectionMatch;
+if (mysqlMatch) {
+  const [, username, password, host, port, database] = mysqlMatch;
   
   config = {
     development: {
-      dialect: 'mssql',
-      dialectModule: require('tedious'),
+      dialect: 'mysql',
       host: host,
-      port: 1433,
+      port: parseInt(port),
       username: username,
       password: password,
       database: database,
       dialectOptions: {
-        options: {
-          encrypt: true,
-          trustServerCertificate: true,
-        },
+        charset: 'utf8mb4',
       },
       pool: {
         max: 5,
@@ -32,18 +28,14 @@ if (connectionMatch) {
       }
     },
     production: {
-      dialect: 'mssql',
-      dialectModule: require('tedious'),
+      dialect: 'mysql',
       host: host,
-      port: 1433,
+      port: parseInt(port),
       username: username,
       password: password,
       database: database,
       dialectOptions: {
-        options: {
-          encrypt: true,
-          trustServerCertificate: true,
-        },
+        charset: 'utf8mb4',
       },
       pool: {
         max: 5,
