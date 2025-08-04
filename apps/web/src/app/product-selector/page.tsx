@@ -308,7 +308,7 @@ export default function CosmicInsight() {
                     placeholder="https://www.ulta.com/shop/hair/shampoo..."
                     value={websiteUrl}
                     onChange={(e) => setWebsiteUrl(e.target.value)}
-                    className="mt-1"
+                    className="mt-1 bg-white border-0"
                     disabled={scrapingLoading}
                   />
                 </div>
@@ -323,7 +323,7 @@ export default function CosmicInsight() {
                     min="1"
                     max="50"
                     disabled={scrapingLoading}
-                    className="w-full"
+                    className="w-full bg-white border-0"
                   />
                 </div>
                 <div className="flex items-end">
@@ -352,7 +352,7 @@ export default function CosmicInsight() {
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-2 block">{categories.length} Categories Available</Label>
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white border-0">
                       <SelectValue placeholder="Select a category..." />
                     </SelectTrigger>
                     <SelectContent>
