@@ -1,19 +1,29 @@
-'use client';
+"use client"
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import './styles.css';
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent } from "@/components/ui/card"
+import { Star, Globe, Tag, Package, BarChart3 } from "lucide-react"
+import Image from "next/image"
+import AnalysisReport from "@/components/analysis-report"
+import rectangleImage from "@/assets/images/Rectangle 2.png"
+import logoSvg from "@/assets/images/logo.svg"
 
 interface Product {
-  Id: string;
-  Name: string;
-  Brand: string;
-  Category: string;
-  Ingredients: string;
-  IngredientCategories: string;
-  Claims: string;
-  Rating: number;
-  ReviewCount: number;
+  Id: string
+  Name: string
+  Brand: string
+  Category: string
+  Ingredients: string
+  IngredientCategories: string
+  Claims: string
+  Rating: number
+  ReviewCount: number
+  selected?: boolean
 }
 
 interface AnalysisResult {
@@ -37,12 +47,6 @@ interface AnalysisResult {
     name: string;
     supportingFact: string;
     studyReference?: string;
-    marketData?: {
-      adoptionRate?: string;
-      searchTrends?: string;
-      marketGrowth?: string;
-      industryReports?: string[];
-    };
     usageMetrics?: {
       searchVolume?: number;
       trendingScore?: number;
@@ -62,166 +66,90 @@ interface AnalysisResult {
   }>;
 }
 
-export default function ProductSelectorPage() {
-  const [brands, setBrands] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>('');
-  const [activeFilter, setActiveFilter] = useState<'trending' | 'emerging' | 'declining' | 'insights'>('trending');
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  
-  // Scraping states
-  const [scrapingUrl, setScrapingUrl] = useState<string>('');
-  const [scrapingLoading, setScrapingLoading] = useState(false);
+export default function CosmicInsight() {
+  const [websiteUrl, setWebsiteUrl] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("")
+  const [selectedProductCount, setSelectedProductCount] = useState("10")
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+  const [showAnalysis, setShowAnalysis] = useState(false)
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [scrapingLoading, setScrapingLoading] = useState(false)
+  const [error, setError] = useState<string>('')
   const [scrapingResult, setScrapingResult] = useState<{
     scrapedCount: number;
     newProductsAdded: number;
     duplicatesSkipped: number;
-  } | null>(null);
+  } | null>(null)
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
 
-  // Fetch brands on component mount
+  // Fetch categories for Ulta on component mount
   useEffect(() => {
-    fetchBrands();
-  }, []);
-
-  // Fetch categories when brand changes
-  useEffect(() => {
-    if (selectedBrand) {
-      fetchCategories(selectedBrand);
-      setSelectedCategory('');
-      setProducts([]);
-      setSelectedProducts([]);
-      setAnalysis(null);
-    }
-  }, [selectedBrand]);
+    fetchCategories()
+  }, [])
 
   // Fetch products when category changes
   useEffect(() => {
-    if (selectedBrand && selectedCategory) {
-      fetchProducts(selectedBrand, selectedCategory);
-      setSelectedProducts([]);
-      setAnalysis(null);
+    if (selectedCategory) {
+      fetchProducts(selectedCategory)
     }
-  }, [selectedBrand, selectedCategory]);
+  }, [selectedCategory])
 
-  const fetchBrands = async () => {
+  const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/brands`);
-      const data = await response.json();
+      const response = await fetch(`${API_BASE_URL}/api/products/brands/Ulta/categories`)
+      const data = await response.json()
       if (data.success) {
-        setBrands(data.data);
+        setCategories(data.data)
       }
     } catch (error) {
-      console.error('Error fetching brands:', error);
-      setError('Failed to fetch brands');
-    } finally {
-      setIsInitialLoading(false);
+      console.error('Error fetching categories:', error)
+      setError('Failed to fetch categories')
     }
-  };
+  }
 
-  const fetchCategories = async (brand: string) => {
+  const fetchProducts = async (category: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/brands/${encodeURIComponent(brand)}/categories`);
-      const data = await response.json();
+      const response = await fetch(`${API_BASE_URL}/api/products/brands/Ulta/categories/${encodeURIComponent(category)}/products`)
+      const data = await response.json()
       if (data.success) {
-        setCategories(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      setError('Failed to fetch categories');
-    }
-  };
-
-  const fetchProducts = async (brand: string, category: string) => {
-    try {
-      console.log('Fetching products for:', { brand, category });
-      const response = await fetch(`${API_BASE_URL}/api/products/brands/${encodeURIComponent(brand)}/categories/${encodeURIComponent(category)}/products`);
-      const data = await response.json();
-      console.log('Products API response:', data);
-      if (data.success) {
-        console.log('Setting products:', data.data);
-        setProducts(data.data);
+        const productsWithSelection = data.data.map((product: Product) => ({
+          ...product,
+          selected: false
+        }))
+        setProducts(productsWithSelection)
       } else {
-        console.log('API returned success: false');
-        setError(data.message || 'Failed to fetch products');
+        setError(data.message || 'Failed to fetch products')
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
-      setError('Failed to fetch products');
+      console.error('Error fetching products:', error)
+      setError('Failed to fetch products')
     }
-  };
-
-  const handleProductSelection = (productId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedProducts([...selectedProducts, productId]);
-    } else {
-      setSelectedProducts(selectedProducts.filter(id => id !== productId));
-    }
-  };
-
-  const analyzeProducts = async () => {
-    if (selectedProducts.length === 0) {
-      setError('Please select at least one product');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productIds: selectedProducts
-        })
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setAnalysis(data.data.analysis);
-        setActiveFilter('trending'); // Reset to trending view
-      } else {
-        setError(data.message || 'Analysis failed');
-      }
-    } catch (error) {
-      console.error('Error analyzing products:', error);
-      setError('Failed to analyze products');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }
 
   const scrapeUltaProducts = async () => {
-    if (!scrapingUrl.trim()) {
-      setError('Please enter a valid Ulta URL');
-      return;
+    if (!websiteUrl.trim()) {
+      setError('Please enter a valid Ulta URL')
+      return
     }
 
     // Basic URL validation
     try {
-      const url = new URL(scrapingUrl);
+      const url = new URL(websiteUrl)
       if (!url.hostname.includes('ulta.com')) {
-        setError('Please enter a valid Ulta.com URL');
-        return;
+        setError('Please enter a valid Ulta.com URL')
+        return
       }
     } catch {
-      setError('Please enter a valid URL');
-      return;
+      setError('Please enter a valid URL')
+      return
     }
 
-    setScrapingLoading(true);
-    setError('');
-    setScrapingResult(null);
+    setScrapingLoading(true)
+    setError('')
+    setScrapingResult(null)
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/scraper/ulta/save`, {
@@ -230,592 +158,320 @@ export default function ProductSelectorPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          categoryUrl: scrapingUrl,
-          limit: 10
+          categoryUrl: websiteUrl,
+          limit: parseInt(selectedProductCount)
         })
-      });
+      })
 
-      const data = await response.json();
+      const data = await response.json()
       if (data.success) {
         setScrapingResult({
           scrapedCount: data.meta.scrapedCount,
           newProductsAdded: data.meta.newProductsAdded,
           duplicatesSkipped: data.meta.duplicatesSkipped
-        });
+        })
         
-        // Refresh brands list to show new data
-        await fetchBrands();
+        // Refresh categories to show new data
+        await fetchCategories()
         
         // Clear form
-        setScrapingUrl('');
+        setWebsiteUrl('')
+        setSelectedProductCount('10')
         
         // Show success message
-        setTimeout(() => setScrapingResult(null), 10000); // Clear after 10 seconds
+        setTimeout(() => setScrapingResult(null), 10000)
       } else {
-        setError(data.error || 'Scraping failed');
+        setError(data.error || 'Scraping failed')
       }
     } catch (error) {
-      console.error('Error scraping products:', error);
-      setError('Failed to scrape products');
+      console.error('Error scraping products:', error)
+      setError('Failed to scrape products')
     } finally {
-      setScrapingLoading(false);
+      setScrapingLoading(false)
     }
-  };
+  }
 
+  const selectedCount = products.filter((p) => p.selected).length
+  const totalProducts = products.length
 
-  if (isInitialLoading) {
+  const handleProductToggle = (productId: string) => {
+    setProducts(products.map((p) => (p.Id === productId ? { ...p, selected: !p.selected } : p)))
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    setProducts(products.map((p) => ({ ...p, selected: checked })))
+  }
+
+  const renderStars = (rating: number) => {
     return (
-      <div className="page-container">
-        <div className="header">
-          <h1 className="title">Product Analytics</h1>
-          <p className="subtitle">Loading...</p>
-        </div>
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star 
+            key={star} 
+            className={`w-3 h-3 ${star <= rating ? "text-gray-300" : "text-gray-300"}`}
+            style={star <= rating ? { fill: '#13A794', color: '#13A794' } : {}}
+          />
+        ))}
+        <span className="text-sm font-medium ml-1">{rating}</span>
+        <span className="text-sm text-gray-500">({products.find(p => p.selected)?.ReviewCount || 0})</span>
       </div>
-    );
+    )
+  }
+
+  const handleAnalyze = async () => {
+    const selectedProducts = products.filter(p => p.selected)
+    if (selectedProducts.length === 0) {
+      setError('Please select at least one product')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productIds: selectedProducts.map(p => p.Id)
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setAnalysis(data.data.analysis)
+        setShowAnalysis(true)
+      } else {
+        setError(data.message || 'Analysis failed')
+      }
+    } catch (error) {
+      console.error('Error analyzing products:', error)
+      setError('Failed to analyze products')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="page-container">
-      <div className="header">
-        <h1 className="title">Product Analytics</h1>
-        <p className="subtitle">
-          Intelligent ingredient analysis and market trend insights
-        </p>
-        <Link href="/" className="back-button">
-          ← Return to Dashboard
-        </Link>
+    <div className="min-h-screen" style={{ backgroundColor: '#E5ECF2' }}>
+      {/* Logo Section */}
+      <div className="text-center py-12">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center justify-center">
+            <Image
+              src={logoSvg}
+              alt="Logo"
+              width={230}
+              height={78.59}
+              className="object-contain"
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="content">
-        {error && (
-          <div className="error-message">
-            ⚠ {error}
-          </div>
-        )}
+      <div className="max-w-4xl mx-auto px-6 pb-8">
+        <div className="space-y-8">
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
 
-        {/* Scraping success message */}
-        {scrapingResult && (
-          <div className="success-message">
-            ✅ Successfully scraped {scrapingResult.scrapedCount} products! 
-            Added {scrapingResult.newProductsAdded} new products, 
-            skipped {scrapingResult.duplicatesSkipped} duplicates.
-          </div>
-        )}
+          {/* Success Message */}
+          {scrapingResult && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+              ✅ Successfully scraped {scrapingResult.scrapedCount} products! 
+              Added {scrapingResult.newProductsAdded} new products, 
+              skipped {scrapingResult.duplicatesSkipped} duplicates.
+            </div>
+          )}
 
-        {/* Ulta Scraping Section */}
-        <div className="scraping-section">
-          <h2 className="section-title">🕷️ Scrape New Products from Ulta</h2>
-          <div className="scraping-card">
-            <div className="scraping-form">
-              <div className="form-group">
-                <label htmlFor="scrapingUrl" className="form-label">
-                  Ulta Category URL
-                </label>
-                <input
-                  id="scrapingUrl"
-                  type="url"
-                  value={scrapingUrl}
-                  onChange={(e) => setScrapingUrl(e.target.value)}
-                  placeholder="https://www.ulta.com/shop/hair/shampoo-conditioner/shampoo"
-                  className="url-input"
-                  disabled={scrapingLoading}
-                />
-                <div className="input-hint">
-                  Enter a Ulta category page URL to scrape products and save them to the database
+          {/* Enter Website Section */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Globe className="w-5 h-5 text-teal-500" />
+                <h2 className="text-lg font-semibold text-gray-900">Enter Website to Scrap Data</h2>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">Enter the website URL to scrape products from and specify how many products you want to extract.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1">
+                  <Label htmlFor="website-url" className="text-sm font-medium text-gray-700">
+                    Website URL
+                  </Label>
+                  <Input
+                    id="website-url"
+                    placeholder="https://www.ulta.com/shop/hair/shampoo..."
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    className="mt-1"
+                    disabled={scrapingLoading}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="product-count" className="text-sm font-medium text-gray-700 mb-2 block">No. of Products</Label>
+                  <Input
+                    id="product-count"
+                    type="number"
+                    placeholder="10"
+                    value={selectedProductCount}
+                    onChange={(e) => setSelectedProductCount(e.target.value)}
+                    min="1"
+                    max="50"
+                    disabled={scrapingLoading}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button 
+                    onClick={scrapeUltaProducts}
+                    disabled={!websiteUrl.trim() || scrapingLoading}
+                    className="bg-gray-900 hover:bg-gray-800 text-white px-6 w-full"
+                  >
+                    {scrapingLoading ? 'Scraping...' : 'Scrap'}
+                  </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <button
-                onClick={scrapeUltaProducts}
-                disabled={!scrapingUrl.trim() || scrapingLoading}
-                className="scrape-button"
-              >
-                {scrapingLoading ? (
-                  <>
-                    <div className="loading-spinner"></div>
-                    <span>Scraping Products...</span>
-                  </>
-                ) : (
-                  `🚀 Scrape 10 Products`
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="controls-grid">
-          <div className="control-card">
-            <h3 className="card-title">
-              🏢 Brand Selection
-            </h3>
-            <select
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="select-input"
-            >
-              <option value="">Select a brand...</option>
-              {brands.map((brand) => (
-                <option key={brand} value={brand}>
-                  {brand}
-                </option>
-              ))}
-            </select>
-            <div className="count-badge">{brands.length} brands available</div>
-          </div>
-
-          <div className="control-card">
-            <h3 className="card-title">
-              📊 Category Selection
-            </h3>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              disabled={!selectedBrand}
-              className="select-input"
-            >
-              <option value="">Select a category...</option>
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-            <div className="count-badge">{categories.length} categories available</div>
-          </div>
-
-          <div className="control-card multi-select-card">
-            <h3 className="card-title">
-              🎯 Product Selection
-            </h3>
-            <div className="multi-select-container">
-              {products.length > 0 ? (
-                <div className="products-grid">
-                  {products.map((product) => (
-                    <div
-                      key={product.Id}
-                      className={`product-checkbox-item ${selectedProducts.includes(product.Id) ? 'selected' : ''}`}
-                      onClick={() => handleProductSelection(product.Id, !selectedProducts.includes(product.Id))}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedProducts.includes(product.Id)}
-                        onChange={(e) => handleProductSelection(product.Id, e.target.checked)}
-                        className="product-checkbox"
-                      />
-                      <div className="product-details">
-                        <div className="product-name-small">{product.Name}</div>
-                        <div className="product-meta-small">
-                          <span>⭐ {product.Rating}</span>
-                          <span>({product.ReviewCount})</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="no-products">
-                  {!selectedCategory ? 'Select a category to view products' : 'No products available'}
-                </div>
-              )}
-            </div>
-            <div className="count-badge">{products.length} products available • {selectedProducts.length} selected</div>
-          </div>
-
-          {/* <div className="control-card">
-            <h3 className="card-title">
-              ⚡ Analysis Engine
-            </h3>
-            <button
-              onClick={analyzeProducts}
-              disabled={selectedProducts.length === 0 || loading}
-              className="analyze-button"
-            >
-              {loading ? (
-                <>
-                  <div className="loading-spinner"></div>
-                  <span>Analyzing...</span>
-                </>
-              ) : (
-                `Analyze ${selectedProducts.length} products`
-              )}
-            </button>
-            <div className="count-badge">
-              {selectedProducts.length} products selected
-            </div>
-          </div> */}
-        </div>
-
-        {selectedProducts.length > 0 && (
-          <div className="products-section">
-            <div className="selected-products">
-              <h3 className="card-title">
-                🎯 Selected Products ({selectedProducts.length})
-              </h3>
-              <div className="products-list">
-                {selectedProducts.map((productId) => {
-                  const product = products.find((p) => p.Id === productId)
-                  return product ? (
-                    <div key={productId} className="product-item">
-                      <div className="product-info">
-                        <div className="product-name">{product.Name}</div>
-                        <div className="product-meta">
-                          <span>⭐ {product.Rating}/5</span>
-                          <span>📊 {product.ReviewCount} reviews</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setSelectedProducts(selectedProducts.filter((id) => id !== productId))}
-                        className="remove-button"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ) : null
-                })}
+          {/* Select Category Section */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Tag className="w-5 h-5 text-teal-500" />
+                <h2 className="text-lg font-semibold text-gray-900">Select Category</h2>
               </div>
-            </div>
+              <p className="text-sm text-gray-600 mb-4">Choose a product category from the dropdown menu to filter and organize your results.</p>
 
-            <div className="control-center">
-              <h3 className="card-title">
-                🎮 Actions
-              </h3>
-              <div className="control-buttons">
-                <button
-                  onClick={() => setSelectedProducts([])}
-                  className="clear-button"
-                  disabled={selectedProducts.length === 0}
-                >
-                  Clear All Products
-                </button>
-                <button
-                  onClick={analyzeProducts}
-                  disabled={selectedProducts.length === 0 || loading}
-                  className="analyze-button"
-                >
-                  {loading ? (
-                    <>
-                      <div className="loading-spinner"></div>
-                      <span>Analyzing...</span>
-                    </>
-                  ) : (
-                    `Analyze ${selectedProducts.length} products`
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {analysis && (
-          <div className="analysis-report">
-            <div className="report-header">
-              <h2 className="report-title">📊 Analysis Results</h2>
-              <div className="report-meta">
-                <span className="report-info">📊 {selectedProducts.length} Products</span>
-                <span className="report-info">📅 {new Date().toLocaleDateString()}</span>
-                <span className="report-info">⭐ {selectedBrand} - {selectedCategory}</span>
-              </div>
-            </div>
-
-            <div className="filter-tabs">
-              <button
-                className={`filter-tab ${activeFilter === 'trending' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('trending')}
-              >
-                📈 Trending ({analysis.trending.ingredients.length + analysis.trending.claims.length + analysis.trending.ingredientCategories.length})
-              </button>
-              <button
-                className={`filter-tab ${activeFilter === 'emerging' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('emerging')}
-              >
-                🚀 Emerging ({analysis.emerging.ingredients.length + analysis.emerging.claims.length + analysis.emerging.ingredientCategories.length})
-              </button>
-              <button
-                className={`filter-tab ${activeFilter === 'declining' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('declining')}
-              >
-                📉 Declining ({analysis.declining.ingredients.length + analysis.declining.claims.length + analysis.declining.ingredientCategories.length})
-              </button>
-              <button
-                className={`filter-tab ${activeFilter === 'insights' ? 'active' : ''}`}
-                onClick={() => setActiveFilter('insights')}
-              >
-                💡 Insights ({analysis.insights.length})
-              </button>
-            </div>
-
-            <div className="report-content">
-              {activeFilter === 'trending' && (
-                <div className="trend-section">
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">🧪 Ingredients</h4>
-                    <div className="tags-container">
-                      {analysis.trending.ingredients.length > 0 ? (
-                        analysis.trending.ingredients.map((ingredient, index) => (
-                          <span key={index} className="trend-tag trending">{ingredient}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">✨ Claims</h4>
-                    <div className="tags-container">
-                      {analysis.trending.claims.length > 0 ? (
-                        analysis.trending.claims.map((claim, index) => (
-                          <span key={index} className="trend-tag trending">{claim}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">📂 Ingredient Categories</h4>
-                    <div className="tags-container">
-                      {analysis.trending.ingredientCategories.length > 0 ? (
-                        analysis.trending.ingredientCategories.map((category, index) => (
-                          <span key={index} className="trend-tag trending">{category}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeFilter === 'emerging' && (
-                <div className="trend-section">
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">🧪 Ingredients</h4>
-                    <div className="tags-container">
-                      {analysis.emerging.ingredients.length > 0 ? (
-                        analysis.emerging.ingredients.map((ingredient, index) => (
-                          <span key={index} className="trend-tag emerging">{ingredient}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">✨ Claims</h4>
-                    <div className="tags-container">
-                      {analysis.emerging.claims.length > 0 ? (
-                        analysis.emerging.claims.map((claim, index) => (
-                          <span key={index} className="trend-tag emerging">{claim}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">📂 Ingredient Categories</h4>
-                    <div className="tags-container">
-                      {analysis.emerging.ingredientCategories.length > 0 ? (
-                        analysis.emerging.ingredientCategories.map((category, index) => (
-                          <span key={index} className="trend-tag emerging">{category}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeFilter === 'declining' && (
-                <div className="trend-section">
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">🧪 Ingredients</h4>
-                    <div className="tags-container">
-                      {analysis.declining.ingredients.length > 0 ? (
-                        analysis.declining.ingredients.map((ingredient, index) => (
-                          <span key={index} className="trend-tag declining">{ingredient}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">✨ Claims</h4>
-                    <div className="tags-container">
-                      {analysis.declining.claims.length > 0 ? (
-                        analysis.declining.claims.map((claim, index) => (
-                          <span key={index} className="trend-tag declining">{claim}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="tag-group">
-                    <h4 className="tag-group-title">📂 Ingredient Categories</h4>
-                    <div className="tags-container">
-                      {analysis.declining.ingredientCategories.length > 0 ? (
-                        analysis.declining.ingredientCategories.map((category, index) => (
-                          <span key={index} className="trend-tag declining">{category}</span>
-                        ))
-                      ) : (
-                        <span className="no-data">None identified</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeFilter === 'insights' && (
-                <div className="insights-section">
-                  {analysis.insights.length > 0 ? (
-                    <div className="insights-grid">
-                      {analysis.insights.map((insight, index) => (
-                        <div key={index} className="insight-card enhanced">
-                          <div className="insight-header">
-                            <div className="insight-title-row">
-                              <div className="insight-icon">
-                                {insight.type === 'ingredient' ? '🧪' : insight.type === 'claim' ? '✨' : '📂'}
-                              </div>
-                              <h4 className="insight-title">{insight.name}</h4>
-                              <span className="insight-type-badge">{insight.type}</span>
-                              {insight.credibilityScore && (
-                                <div className="credibility-indicator">
-                                  <div className={`credibility-dot ${
-                                    insight.credibilityScore >= 80 ? 'high' : 
-                                    insight.credibilityScore >= 60 ? 'medium' : 'low'
-                                  }`}></div>
-                                  <span className="credibility-score">{insight.credibilityScore}% credible</span>
-                                </div>
-                              )}
-                            </div>
-                            <p className="insight-fact">{insight.supportingFact}</p>
-                          </div>
-
-                          {/* Usage Metrics */}
-                          {insight.usageMetrics && (
-                            <div className="usage-metrics">
-                              <h5 className="metrics-title">📊 Usage Analytics</h5>
-                              <div className="metrics-grid">
-                                <div className="metric-item">
-                                  <div className="metric-value search">{insight.usageMetrics.searchVolume?.toLocaleString() || 'N/A'}</div>
-                                  <div className="metric-label">Search Volume</div>
-                                </div>
-                                <div className="metric-item">
-                                  <div className="metric-value trending">{insight.usageMetrics.trendingScore || 'N/A'}</div>
-                                  <div className="metric-label">Trending Score</div>
-                                </div>
-                                <div className="metric-item">
-                                  <div className="metric-value engagement">{insight.usageMetrics.userEngagement || 'N/A'}%</div>
-                                  <div className="metric-label">Engagement</div>
-                                </div>
-                                <div className="metric-item">
-                                  <div className="metric-value mentions">{insight.usageMetrics.recentMentions || 'N/A'}</div>
-                                  <div className="metric-label">Recent Mentions</div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Market Data */}
-                          {insight.marketData && (
-                            <div className="market-data enhanced">
-                              <h5 className="market-title">📈 Market Intelligence</h5>
-                              <div className="market-stats">
-                                {insight.marketData.adoptionRate && (
-                                  <div className="market-stat">
-                                    <span className="stat-label">Adoption Rate:</span>
-                                    <span className="stat-value">{insight.marketData.adoptionRate}</span>
-                                  </div>
-                                )}
-                                {insight.marketData.searchTrends && (
-                                  <div className="market-stat">
-                                    <span className="stat-label">Search Trends:</span>
-                                    <span className="stat-value">{insight.marketData.searchTrends}</span>
-                                  </div>
-                                )}
-                                {insight.marketData.marketGrowth && (
-                                  <div className="market-stat">
-                                    <span className="stat-label">Market Growth:</span>
-                                    <span className="stat-value">{insight.marketData.marketGrowth}</span>
-                                  </div>
-                                )}
-                              </div>
-                              {insight.marketData.industryReports && insight.marketData.industryReports.length > 0 && (
-                                <div className="industry-reports">
-                                  <span className="stat-label">Industry Reports:</span>
-                                  <ul className="reports-list">
-                                    {insight.marketData.industryReports.map((report, idx) => (
-                                      <li key={idx} className="report-item">• {report}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Study Reference */}
-                          {insight.studyReference && (
-                            <div className="study-reference">
-                              <h5 className="reference-title">📚 Primary Reference</h5>
-                              <p className="reference-text">{insight.studyReference}</p>
-                            </div>
-                          )}
-
-                          {/* Supporting Studies */}
-                          {insight.supportingStudies && insight.supportingStudies.length > 0 && (
-                            <div className="supporting-studies">
-                              <h5 className="studies-title">🔬 Supporting Studies</h5>
-                              <div className="studies-list">
-                                {insight.supportingStudies.map((study, studyIndex) => (
-                                  <div key={studyIndex} className="study-item">
-                                    <div className="study-header">
-                                      <h6 className="study-title">{study.title}</h6>
-                                      {study.relevanceScore && (
-                                        <span className="relevance-score">{study.relevanceScore}% relevant</span>
-                                      )}
-                                    </div>
-                                    {study.authors && (
-                                      <p className="study-meta">
-                                        <strong>Authors:</strong> {study.authors}
-                                      </p>
-                                    )}
-                                    <div className="study-details">
-                                      {study.journal && <span><strong>Journal:</strong> {study.journal}</span>}
-                                      {study.year && <span><strong>Year:</strong> {study.year}</span>}
-                                      {study.doi && (
-                                        <span>
-                                          <strong>DOI:</strong> 
-                                          <a href={`https://doi.org/${study.doi}`} target="_blank" rel="noopener noreferrer" 
-                                             className="doi-link">
-                                            {study.doi}
-                                          </a>
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="study-summary">{study.summary}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 mb-2 block">{categories.length} Categories Available</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
                       ))}
-                    </div>
-                  ) : (
-                    <div className="no-insights">
-                      <p>No detailed insights available for this analysis.</p>
-                    </div>
-                  )}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
+            </CardContent>
+          </Card>
 
+          {/* Step Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Step 1 - Select Available Products */}
+            <Card 
+              className={`${!showAnalysis ? "text-white" : "bg-gray-200"} cursor-pointer hover:opacity-80 transition-opacity`}
+              style={!showAnalysis ? { backgroundColor: '#323232' } : {}}
+              onClick={() => setShowAnalysis(false)}
+            >
+              <CardContent className="p-6">
+                <div className={`text-sm font-medium mb-3 ${!showAnalysis ? "text-white" : "text-gray-700"}`}>1/2</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Package className={`w-5 h-5 ${!showAnalysis ? "text-teal-400" : "text-gray-500"}`} />
+                  <h3 className={`text-lg font-semibold ${!showAnalysis ? "text-white" : "text-gray-700"}`}>
+                    Select Available Products
+                  </h3>
+                </div>
+                <p className={`text-sm ${!showAnalysis ? "text-gray-300" : "text-gray-600"}`}>
+                  Browse the list below and select the products you want to analyze.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Step 2 - Analysis Report */}
+            <Card 
+              className={`${showAnalysis ? "text-white" : "bg-gray-200"} cursor-pointer hover:opacity-80 transition-opacity`}
+              style={showAnalysis ? { backgroundColor: '#323232' } : {}}
+              onClick={() => analysis && setShowAnalysis(true)}
+            >
+              <CardContent className="p-6">
+                <div className={`text-sm font-medium mb-3 ${showAnalysis ? "text-white" : "text-gray-700"}`}>2/2</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className={`w-5 h-5 ${showAnalysis ? "text-teal-400" : "text-teal-500"}`} />
+                  <h3 className={`text-lg font-semibold ${showAnalysis ? "text-white" : "text-gray-700"}`}>
+                    Analysis Report
+                  </h3>
+                </div>
+                <p className={`text-sm ${showAnalysis ? "text-gray-300" : "text-gray-600"}`}>
+                Explore trends, claims, and ingredients based on the products you selected.                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Product Selection or Analysis Report */}
+          {!showAnalysis ? (
+            selectedCategory && products.length > 0 && (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Available Products</h3>
+
+                    <div className="flex items-center gap-2 mb-4">
+                      <Checkbox
+                        id="select-all"
+                        checked={selectedCount === products.length && products.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                      <Label htmlFor="select-all" className="font-medium">
+                        Select All ({totalProducts})
+                      </Label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {products.map((product) => (
+                      <div key={product.Id} className="flex items-center gap-4 p-3 border rounded hover:bg-gray-50">
+                        <Checkbox 
+                          checked={product.selected || false} 
+                          onCheckedChange={() => handleProductToggle(product.Id)} 
+                        />
+                        <Image
+                          src={rectangleImage}
+                          alt={product.Name}
+                          width={60}
+                          height={60}
+                          className="rounded object-cover bg-gray-100"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 mb-1">{product.Name}</h4>
+                          {renderStars(product.Rating)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                    <span className="text-sm text-gray-600">
+                      {selectedCount} of {totalProducts} Selected
+                    </span>
+                    <Button 
+                      onClick={handleAnalyze} 
+                      disabled={selectedCount === 0 || loading}
+                      className="bg-gray-900 hover:bg-gray-800 text-white px-8"
+                    >
+                      {loading ? 'Analyzing...' : 'Analyze →'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          ) : (
+            analysis && <AnalysisReport analysis={analysis} selectedCategory={selectedCategory} />
+          )}
+        </div>
+      </div>
     </div>
-  );
+  )
 }
