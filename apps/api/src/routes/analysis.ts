@@ -148,4 +148,53 @@ router.get('/health', analysisController.healthCheck);
  */
 router.get('/cache', analysisController.manageCacheStats);
 
+/**
+ * @swagger
+ * /api/analysis/export/pdf:
+ *   post:
+ *     summary: Export analysis report as PDF
+ *     tags: [Analysis]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productIds
+ *             properties:
+ *               productIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 description: Array of product UUIDs to analyze and export
+ *                 example: ["123e4567-e89b-12d3-a456-426614174000", "987fcdeb-51a2-43d1-9f12-123456789abc"]
+ *               selectedCategory:
+ *                 type: string
+ *                 description: Category name for context in the PDF report
+ *                 example: "Skincare"
+ *     responses:
+ *       200:
+ *         description: PDF report file
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *         headers:
+ *           Content-Disposition:
+ *             description: Attachment filename
+ *             schema:
+ *               type: string
+ *               example: "attachment; filename=\"Analysis_Report_Skincare_2025-01-15.pdf\""
+ *       400:
+ *         description: Invalid request format
+ *       404:
+ *         description: No products found
+ *       500:
+ *         description: PDF generation failed
+ */
+router.post('/export/pdf', analysisController.exportToPDF);
+
 export { router as analysisRoutes };

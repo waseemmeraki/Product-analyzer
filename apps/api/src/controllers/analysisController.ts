@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { DatabaseService } from '../services/database';
 import { OpenAIService } from '../services/openai';
+import { PDFGeneratorService } from '../services/pdfGenerator';
 
 const analysisRequestSchema = z.object({
   productIds: z.array(z.string().uuid('Invalid product ID format')).min(1, 'At least one product ID is required'),
@@ -10,10 +11,12 @@ const analysisRequestSchema = z.object({
 class AnalysisController {
   private databaseService: DatabaseService;
   private openaiService: OpenAIService;
+  private pdfGeneratorService: PDFGeneratorService;
 
   constructor() {
     this.databaseService = new DatabaseService();
     this.openaiService = new OpenAIService();
+    this.pdfGeneratorService = new PDFGeneratorService();
   }
 
   analyzeProducts = async (req: Request, res: Response): Promise<void> => {
@@ -161,6 +164,98 @@ class AnalysisController {
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       });
+    }
+  };
+
+  // PDF export endpoint
+  exportToPDF = async (req: Request, res: Response): Promise<void> => {
+    try {
+      // Validate request body - reuse the same schema but for PDF export
+      const validationResult = analysisRequestSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        res.status(400).json({
+          error: 'Invalid request',
+          details: validationResult.error.errors.map(err => ({
+            field: err.path.join('.'),
+            message: err.message
+          }))
+        });
+        return;
+      }
+
+      const { productIds } = validationResult.data;
+      const { selectedCategory } = req.body; // Additional field for PDF context
+
+      // Fetch products from database
+      const products = await this.databaseService.getProductsByIds(productIds);
+
+      if (products.length === 0) {
+        res.status(404).json({
+          error: 'No products found',
+          message: 'None of the provided product IDs match existing products'
+        });
+        return;
+      }
+
+      // Analyze products with OpenAI
+      const analysis = await this.openaiService.analyzeProducts(products);
+
+      // Generate PDF
+      const reportData = {
+        analysis: {
+          trending: {
+            ingredients: analysis.trending.ingredients,
+            claims: analysis.trending.claims,
+            ingredientCategories: analysis.trending.ingredientCategories
+          },
+          emerging: {
+            ingredients: analysis.emerging.ingredients,
+            claims: analysis.emerging.claims,
+            ingredientCategories: analysis.emerging.ingredientCategories
+          },
+          declining: {
+            ingredients: analysis.declining.ingredients,
+            claims: analysis.declining.claims,
+            ingredientCategories: analysis.declining.ingredientCategories
+          },
+          insights: analysis.insights
+        },
+        selectedCategory: selectedCategory || 'Unknown Category',
+        productsAnalyzed: products.length,
+        generationDate: new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      };
+
+      const pdfBuffer = await this.pdfGeneratorService.generatePDF(reportData);
+
+      // Set response headers for PDF download
+      const filename = `Analysis_Report_${selectedCategory?.replace(/[^a-zA-Z0-9]/g, '_') || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      // Send PDF buffer
+      res.send(pdfBuffer);
+
+    } catch (error) {
+      console.error('Error generating PDF report:', error);
+      
+      if (error instanceof Error) {
+        res.status(500).json({
+          error: 'PDF generation failed',
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          error: 'Internal server error',
+          message: 'An unexpected error occurred during PDF generation'
+        });
+      }
     }
   };
 }

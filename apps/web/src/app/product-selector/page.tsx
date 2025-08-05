@@ -468,7 +468,11 @@ export default function CosmicInsight() {
               </Card>
             )
           ) : (
-            analysis && <AnalysisReport analysis={analysis} selectedCategory={selectedCategory} />
+            analysis && <AnalysisReport 
+              analysis={analysis} 
+              selectedCategory={selectedCategory}
+              selectedProductIds={products.filter(p => p.selected).map(p => p.Id)}
+            />
           )}
         </div>
       </div>

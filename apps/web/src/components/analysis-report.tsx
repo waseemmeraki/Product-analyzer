@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, Heart, TrendingDown, Lightbulb, Calendar, Building2, Layers } from "lucide-react"
+import { TrendingUp, Heart, TrendingDown, Lightbulb, Calendar, Building2, Layers, Download } from "lucide-react"
 
 type TabType = "trending" | "emerging" | "declining" | "insights"
 
@@ -51,10 +51,12 @@ interface AnalysisResult {
 interface Props {
   analysis: AnalysisResult;
   selectedCategory: string;
+  selectedProductIds?: string[];
 }
 
-export default function AnalysisReport({ analysis, selectedCategory }: Props) {
+export default function AnalysisReport({ analysis, selectedCategory, selectedProductIds = [] }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>("trending")
+  const [isExporting, setIsExporting] = useState(false)
 
   const tabs = [
     { 
@@ -296,6 +298,67 @@ export default function AnalysisReport({ analysis, selectedCategory }: Props) {
     </div>
   )
 
+  const handleExportToPDF = async () => {
+    if (selectedProductIds.length === 0) {
+      alert('No products selected for export')
+      return
+    }
+
+    setIsExporting(true)
+    
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
+      
+      const response = await fetch(`${API_BASE_URL}/api/analysis/export/pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productIds: selectedProductIds,
+          selectedCategory: selectedCategory
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF')
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob()
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      
+      // Get filename from response headers or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      let filename = `Analysis_Report_${selectedCategory.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+      
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(link)
+      
+    } catch (error) {
+      console.error('Error exporting PDF:', error)
+      alert('Failed to export PDF. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "trending":
@@ -314,7 +377,17 @@ export default function AnalysisReport({ analysis, selectedCategory }: Props) {
       <CardContent className="p-6">
         {/* Header */}
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Analysis Report</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Analysis Report</h2>
+            <Button 
+              onClick={handleExportToPDF}
+              disabled={isExporting || selectedProductIds.length === 0}
+              className="bg-gray-900 hover:bg-gray-800 text-white px-6 flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              {isExporting ? 'Generating PDF...' : 'Export PDF'}
+            </Button>
+          </div>
 
           {/* Metadata */}
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-6">
