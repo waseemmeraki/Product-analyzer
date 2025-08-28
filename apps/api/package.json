@@ -12,6 +12,7 @@
   "dependencies": {
     "@product-analytics/database": "*",
     "@product-analytics/types": "*",
+    "@types/node-fetch": "^2.6.13",
     "@types/puppeteer": "^7.0.4",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.5.0",
@@ -24,6 +25,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.0",
     "morgan": "^1.10.0",
+    "node-fetch": "^2.7.0",
     "openai": "^5.10.2",
     "playwright": "^1.54.2",
     "puppeteer": "^24.15.0",

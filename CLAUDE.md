@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is a **Next.js full-stack monorepo** using Turbo for build orchestration. The architecture separates frontend and backend concerns while sharing common packages:
+This is a **Product Analysis Platform** built as a Next.js full-stack monorepo using Turbo for build orchestration. The application allows users to scrape product data from Ulta Beauty, analyze trends, and generate insights using AI.
 
-- **Frontend**: Next.js 15 app at `apps/web` (typically port 3001)
-- **Backend**: Express.js API at `apps/api` (port 3002)
-- **Database**: SQL Server with Prisma ORM at `packages/database`
+- **Frontend**: Next.js 15 app at `apps/web` (port 3001) - Product selection, analysis visualization, and PDF export
+- **Backend**: Express.js API at `apps/api` (port 3002) - Scraping, analysis, and data management
+- **Database**: MySQL with Sequelize ORM at `packages/database`
 - **Shared Types**: TypeScript interfaces at `packages/types`
-- **UI Components**: React components at `packages/ui`
+- **UI Components**: React components at `packages/ui` (Shadcn UI based)
 
 ## Key Development Commands
 
@@ -22,13 +22,15 @@ cp apps/web/.env.local.example apps/web/.env.local    # Frontend env
 cp apps/api/.env.example apps/api/.env               # Backend env
 ```
 
-### Database Operations
+### Database Operations (Sequelize)
 ```bash
 cd packages/database
-npx prisma generate                  # Generate Prisma client after schema changes
-npx prisma migrate dev               # Create and apply new migration
-npx prisma db push                   # Push schema changes without migration
-npx prisma studio                    # Open database GUI
+npm run db:create                    # Create database
+npm run db:migrate                   # Run migrations
+npm run db:migrate:undo              # Undo last migration
+npm run db:seed                      # Seed database
+npm run migration:create -- --name migration-name  # Create new migration
+npm run db:test                      # Test database connection
 ```
 
 ### Development Workflow
@@ -47,37 +49,54 @@ npm run lint                         # Lint all packages
 
 ## Database Schema Architecture
 
-The Prisma schema defines three core entities with clear relationships:
+The application uses MySQL with Sequelize ORM. The main entity is:
 
-- **User**: Central entity with authentication fields (`email`, `password`) and timestamps
-- **Project**: Belongs to User, has unique `apiKey` for API access
-- **Event**: Analytics events belonging to both User and Project, with flexible `properties` JSON field
+- **Product**: Stores scraped product data from Ulta Beauty
+  - `Id`: UUID primary key
+  - `Name`: Product name
+  - `Brand`: Product brand (currently "Ulta")
+  - `Category`: Product category (e.g., "Shampoo", "Moisturizers")
+  - `Ingredients`: Full ingredient list as text
+  - `IngredientCategories`: AI-generated categories for ingredients
+  - `Claims`: Product claims/benefits as text
+  - `Rating`: Product rating (0-5)
+  - `ReviewCount`: Number of reviews
 
-Key patterns:
-- All IDs use CUID for better distributed system compatibility
-- Cascade deletes maintain referential integrity
-- JSON properties field allows flexible event tracking
+The schema also includes migrations for Users, Projects, and Events (from template) but these are not currently used in the application.
 
-## API Architecture and Authentication
+## API Architecture
 
-### Authentication Flow
-- JWT access tokens (15min expiry stored in localStorage)
-- Refresh tokens (7 days expiry) for automatic token renewal
-- Bearer authentication for protected endpoints
-- Automatic token refresh in frontend API client with redirect on failure
+### Core Features
+- **Web Scraping**: Automated product data extraction from Ulta Beauty
+- **AI Analysis**: OpenAI-powered trend analysis and insights generation
+- **PDF Export**: Generate professional analysis reports
+- **Caching**: Analysis results cached for 15 minutes to reduce API costs
 
 ### API Structure
 - **Base URL**: `http://localhost:3002/api`
 - **Health Check**: `/health`
-- **Swagger Documentation**: `/api-docs` (simple implementation, not auto-generated)
-- **Auth Routes**: `/api/auth/*` (register, login, refresh, logout)
-- **Analytics Routes**: `/api/analytics/*` (dashboard, events, reports) - all require authentication
+- **Swagger Documentation**: `/api-docs` (interactive API documentation)
+- **Product Routes**: `/api/products/*` - Get brands, categories, and products
+- **Scraper Routes**: `/api/scraper/*` - Scrape Ulta products and save to database
+- **Analysis Routes**: `/api/analysis/*` - Analyze products and export reports
+- **Auth Routes**: `/api/auth/*` (template routes - not currently used)
+- **Analytics Routes**: `/api/analytics/*` (template routes - not currently used)
 
-### API Client Pattern
-Frontend uses centralized API client (`apps/web/src/lib/api.ts`) with:
-- Axios interceptors for automatic token attachment
-- Request/response type safety using shared types
-- Automatic retry with token refresh on 401 errors
+### Key API Endpoints
+
+#### Products API
+- `GET /api/products/brands/:brand/categories` - Get categories for a brand
+- `GET /api/products/brands/:brand/categories/:category/products` - Get products by category
+
+#### Scraper API
+- `POST /api/scraper/ulta` - Scrape products from Ulta URL (returns data only)
+- `POST /api/scraper/ulta/save` - Scrape and save products to database
+
+#### Analysis API
+- `POST /api/analysis` - Analyze selected products with OpenAI
+- `GET /api/analysis/health` - Check analysis service health and cache stats
+- `GET /api/analysis/cache` - View or manage analysis cache
+- `POST /api/analysis/export/pdf` - Export analysis report as PDF
 
 ## Workspace and Package Management
 
@@ -88,8 +107,12 @@ Frontend uses centralized API client (`apps/web/src/lib/api.ts`) with:
 
 ### Environment Variables
 - Separate `.env` files for each app with examples provided
-- Backend requires: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`
-- Frontend requires: `NEXT_PUBLIC_API_URL`
+- Backend requires: 
+  - `DATABASE_URL` (MySQL connection string)
+  - `OPENAI_API_KEY` (for AI analysis)
+  - `JWT_SECRET`, `JWT_REFRESH_SECRET` (for auth - not currently used)
+- Frontend requires: 
+  - `NEXT_PUBLIC_API_URL` (backend API URL)
 
 ### Monorepo Structure
 - Turbo manages task execution and caching
@@ -98,28 +121,123 @@ Frontend uses centralized API client (`apps/web/src/lib/api.ts`) with:
 
 ## Development Patterns
 
+### Application Flow
+1. **Data Collection**: Users enter Ulta product URLs to scrape product data
+2. **Product Selection**: Browse categories and select products for analysis
+3. **AI Analysis**: Selected products are analyzed for trends using OpenAI GPT-4O with comprehensive insights
+4. **Interactive Analysis**: View detailed analysis with:
+   - **Trending/Emerging/Declining tabs** with rich descriptions and embedded links
+   - **Comprehensive Insights tab** with usage metrics, credibility scores, and web references
+   - **Cross-analysis patterns** showing relationships between different trend categories
+5. **Report Generation**: Export complete analysis as professional PDF reports
+
+### Key Services
+
+#### Web Scraper Service (`webScraperService.ts`)
+- Uses Playwright for browser automation
+- Extracts product details, ingredients, claims, ratings
+- Handles pagination and rate limiting
+- Automatically categorizes ingredients using AI
+
+#### OpenAI Service (`openai.ts`)
+- **GPT-4O Integration**: Uses OpenAI GPT-4O model for comprehensive product analysis
+- **Dynamic Analysis**: Real-time analysis of trending/emerging/declining patterns based on actual product data
+- **Rich Insights Generation**: Creates detailed insights with usage metrics, credibility scores, and supporting facts
+- **Comprehensive Descriptions**: Generates detailed descriptions for ingredients, claims, and categories with embedded links
+- **Consistent Results**: Uses deterministic seeds and temperature=0.0 for reproducible analysis
+- **Cross-Category Support**: Adapts analysis approach to any Ulta product category (beauty, hair, wellness, tools, etc.)
+- **Scientific Backing**: Includes references to credible sources and educational links
+
+#### Analysis Cache Service (`analysisCache.ts`)
+- **15-minute Caching**: Stores analysis results to reduce OpenAI API costs
+- **Cache Management**: Health monitoring and manual cache clearing capabilities
+- **Performance Optimization**: Significantly reduces response times for repeated analyses
+
+#### PDF Generator Service (`pdfGenerator.ts`)
+- **Professional Reports**: Creates comprehensive, print-ready analysis reports
+- **Complete Content**: Includes ALL analysis data - descriptions, insights, metrics, and web references
+- **Rich Formatting**: Professional styling with charts, metrics grids, and proper typography
+- **Interactive Elements**: Clickable links to supporting sources and references
+- **Optimized Layout**: Compact first-page design with efficient space utilization
+- **Visual Analytics**: Includes doughnut charts for data overview and trend visualization
+
 ### Error Handling
-- Centralized error middleware in backend (`middleware/errorHandler.ts`)
-- Custom `AppError` interface with operational error flags
-- Frontend API client handles errors with user-friendly messages
+- Centralized error middleware in backend
+- Graceful handling of scraping failures
+- API rate limiting and retry logic
+- User-friendly error messages in UI
 
-### Code Organization
-- Controllers handle HTTP request/response logic
-- Services contain business logic (not yet implemented)
-- Middleware for cross-cutting concerns (auth, error handling, logging)
-- Shared validation logic should use Zod schemas
+## Usage Workflow
 
-### Testing Strategy
-Run type checking before committing changes:
-```bash
-npm run type-check
-```
+1. **Scrape Products**:
+   - Enter an Ulta category URL (e.g., `https://www.ulta.com/shop/hair/shampoo`)
+   - Specify number of products to scrape (1-50)
+   - Click "Scrap" to fetch and save products
 
-Database changes require migration generation:
-```bash
-cd packages/database && npx prisma migrate dev --name describe_your_changes
-```
+2. **Select Products**:
+   - Choose a category from the dropdown
+   - Select products for analysis (checkbox selection)
+   - Click "Analyze" to generate insights
+
+3. **View Analysis**:
+   - **Browse Trending/Emerging/Declining tabs** with detailed descriptions and scientific explanations
+   - **Explore Comprehensive Insights** with usage metrics, market penetration data, and credibility scores
+   - **Access Web References** with validated URLs providing proof and supporting evidence
+   - **Review Cross-Category Analysis** showing patterns across all analyzed products
+   - **Export Professional PDF Reports** containing complete analysis with interactive links
+
+## Advanced Analysis Features
+
+### AI-Powered Insights System
+The application now features a sophisticated analysis system that provides:
+
+#### Comprehensive Trend Analysis
+- **Trending Items**: High-performing ingredients, claims, and categories with strong consumer satisfaction (≥4.0 stars, 40%+ presence)
+- **Emerging Items**: Innovative elements showing growth potential (15-40% presence, representing new science/demands)
+- **Declining Items**: Elements losing favor (in low-rated products <3.5 stars, outdated formulations)
+
+#### Rich Content Generation
+- **Detailed Descriptions**: Each section includes scientific explanations with embedded educational links
+- **Usage Statistics**: Exact percentages, ratings, and frequency data from analyzed products
+- **Market Context**: Category-specific benefits, consumer trends, and formulation science
+
+#### Advanced Insights Dashboard
+- **Cross-Category Analysis**: Insights that analyze ALL trending, emerging, and declining items collectively
+- **Usage Metrics**: Search volume, trending scores, user engagement, recent mentions, and market penetration
+- **Credibility Scoring**: 1-100 scale based on scientific evidence, market presence, safety profile, and regulatory status
+- **Web References**: Automatically sourced and validated URLs from credible sources providing supporting evidence
+
+#### Data Consistency & Reliability
+- **Deterministic Analysis**: Uses consistent product ordering and deterministic seeds for reproducible results
+- **Temperature=0.0**: Ensures maximum consistency in OpenAI responses
+- **Comprehensive Validation**: All analysis based strictly on actual product data with no external assumptions
+
+### PDF Export System
+- **Complete Content Export**: All descriptions, insights, metrics, and references included
+- **Professional Formatting**: Clean, print-ready layout with charts and visual analytics
+- **Interactive Elements**: Clickable links to supporting sources preserved in PDF
+- **Optimized Layout**: Compact design maximizing first-page content utilization
 
 ## API Documentation
 
-Swagger UI provides interactive API documentation at `http://localhost:3002/api-docs`. The current implementation uses a simple static schema definition rather than auto-generated docs from JSDoc comments. When adding new endpoints, update the schema in `apps/api/src/swagger-simple.ts`.
+Swagger UI provides interactive API documentation at `http://localhost:3002/api-docs`. The implementation uses a simple schema definition in `apps/api/src/swagger-simple.ts`.
+
+## Recent Enhancements (Latest Updates)
+
+### OpenAI Integration Improvements
+- **GPT-4O Model**: Upgraded to latest OpenAI model for enhanced analysis quality
+- **Dynamic Prompting**: Adaptive prompts that adjust to any Ulta product category
+- **URL Validation System**: Automatic sourcing and validation of supporting web references
+- **Comprehensive System Prompts**: Detailed instructions ensuring consistent, high-quality analysis
+
+### Frontend Analysis Interface
+- **Enhanced Insights Tab**: Complete redesign with usage metrics, credibility scores, and web references
+- **Rich Descriptions**: All trending/emerging/declining sections now include detailed explanations with links
+- **Cross-Analysis Patterns**: Insights show relationships and patterns across all trend categories
+- **Professional UI**: Consistent styling with proper spacing, colors, and typography
+
+### PDF Generation Enhancements
+- **Complete Content Inclusion**: All frontend analysis data now included in PDF exports
+- **Enhanced Formatting**: Professional styling with metrics grids, charts, and proper typography
+- **Space Optimization**: Eliminated excessive whitespace for efficient page utilization
+- **Interactive Links**: Preserved clickable URLs and references in exported PDFs

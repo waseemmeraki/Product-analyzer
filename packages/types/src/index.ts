@@ -59,6 +59,7 @@ export interface AnalysisInsight {
   type: 'ingredient' | 'claim' | 'category';
   name: string;
   supportingFact: string;
+  primaryReference?: string;
   studyReference?: string;
   marketData?: {
     adoptionRate?: string;
@@ -71,8 +72,16 @@ export interface AnalysisInsight {
     trendingScore?: number;
     userEngagement?: number;
     recentMentions?: number;
+    marketPenetration?: number;
   };
   credibilityScore?: number;
+  webReferences?: Array<{
+    title: string;
+    url: string;
+    source: string;
+    summary: string;
+    relevanceScore?: number;
+  }>;
   supportingStudies?: Array<{
     title: string;
     authors?: string;
@@ -87,18 +96,27 @@ export interface AnalysisInsight {
 export interface AnalysisResult {
   trending: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   emerging: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   declining: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   insights: AnalysisInsight[];
 }

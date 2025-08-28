@@ -8,29 +8,40 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 interface AnalysisResult {
   trending: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   emerging: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   declining: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   insights: Array<{
     type: 'ingredient' | 'claim' | 'category';
     name: string;
     supportingFact: string;
     studyReference?: string;
+    primaryReference?: string;
     usageMetrics?: {
       searchVolume?: number;
       trendingScore?: number;
       userEngagement?: number;
       recentMentions?: number;
+      marketPenetration?: number;
     };
     credibilityScore?: number;
     supportingStudies?: Array<{
@@ -39,6 +50,13 @@ interface AnalysisResult {
       journal?: string;
       year?: number;
       doi?: string;
+      summary: string;
+      relevanceScore?: number;
+    }>;
+    webReferences?: Array<{
+      title: string;
+      url: string;
+      source: string;
       summary: string;
       relevanceScore?: number;
     }>;
@@ -154,6 +172,11 @@ export class PDFGeneratorService {
         return `<div class="section-empty">No ${sectionName.toLowerCase()} data available</div>`;
       }
 
+      // Helper function to convert markdown links to HTML
+      const convertMarkdownLinksToHTML = (text: string) => {
+        return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="link">$1</a>');
+      };
+
       return `
         <div class="section">
           <h3 class="section-title">${sectionName}</h3>
@@ -165,6 +188,11 @@ export class PDFGeneratorService {
                   `<span class="tag tag-${index % 8}">${ingredient}</span>`
                 ).join('')}
               </div>
+              ${sectionData.ingredientsDescription ? `
+                <div class="description">
+                  <p>${convertMarkdownLinksToHTML(sectionData.ingredientsDescription)}</p>
+                </div>
+              ` : ''}
             </div>
           ` : ''}
           ${sectionData.claims.length > 0 ? `
@@ -175,6 +203,11 @@ export class PDFGeneratorService {
                   `<span class="tag tag-${(index + sectionData.ingredients.length) % 8}">${claim}</span>`
                 ).join('')}
               </div>
+              ${sectionData.claimsDescription ? `
+                <div class="description">
+                  <p>${convertMarkdownLinksToHTML(sectionData.claimsDescription)}</p>
+                </div>
+              ` : ''}
             </div>
           ` : ''}
           ${sectionData.ingredientCategories.length > 0 ? `
@@ -185,6 +218,11 @@ export class PDFGeneratorService {
                   `<span class="tag tag-${(index + sectionData.ingredients.length + sectionData.claims.length) % 8}">${category}</span>`
                 ).join('')}
               </div>
+              ${sectionData.ingredientCategoriesDescription ? `
+                <div class="description">
+                  <p>${convertMarkdownLinksToHTML(sectionData.ingredientCategoriesDescription)}</p>
+                </div>
+              ` : ''}
             </div>
           ` : ''}
         </div>
@@ -229,14 +267,45 @@ export class PDFGeneratorService {
                   <div class="metric-value">${insight.usageMetrics.recentMentions || 'N/A'}</div>
                   <div class="metric-label">Recent Mentions</div>
                 </div>
+                ${insight.usageMetrics.marketPenetration ? `
+                  <div class="metric metric-green">
+                    <div class="metric-value">${insight.usageMetrics.marketPenetration}%</div>
+                    <div class="metric-label">Market Penetration</div>
+                  </div>
+                ` : ''}
               </div>
+            </div>
+          ` : ''}
+
+          ${insight.primaryReference ? `
+            <div class="reference-section">
+              <h4>Primary Reference</h4>
+              <p class="reference"><a href="${insight.primaryReference}" target="_blank" rel="noopener noreferrer" class="link">${insight.primaryReference}</a></p>
             </div>
           ` : ''}
 
           ${insight.studyReference ? `
             <div class="reference-section">
-              <h4>Primary Reference</h4>
+              <h4>Study Reference</h4>
               <p class="reference">${insight.studyReference}</p>
+            </div>
+          ` : ''}
+
+          ${insight.webReferences && insight.webReferences.length > 0 ? `
+            <div class="web-references-section">
+              <h4>Web References</h4>
+              ${insight.webReferences.map((ref, refIndex) => `
+                <div class="web-reference">
+                  <div class="web-reference-header">
+                    <h5 class="web-reference-title">
+                      <a href="${ref.url}" target="_blank" rel="noopener noreferrer" class="link">${ref.title}</a>
+                    </h5>
+                    ${ref.relevanceScore ? `<span class="relevance">${ref.relevanceScore}% relevant</span>` : ''}
+                  </div>
+                  <p class="web-reference-source"><strong>Source:</strong> ${ref.source}</p>
+                  <p class="web-reference-summary">${ref.summary}</p>
+                </div>
+              `).join('')}
             </div>
           ` : ''}
 
@@ -289,27 +358,27 @@ export class PDFGeneratorService {
         .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px 20px;
+            padding: 10px 20px;
         }
         
         .header {
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 16px;
             border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 15px;
+            padding-bottom: 12px;
         }
         
         .logo {
-            max-width: 150px;
+            max-width: 120px;
             height: auto;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
         }
         
         .title {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 700;
             color: #111827;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         
         .metadata {
@@ -317,7 +386,7 @@ export class PDFGeneratorService {
             justify-content: space-between;
             align-items: flex-start;
             gap: 32px;
-            margin-bottom: 8px;
+            margin-bottom: 0px;
         }
         
         .brand-category {
@@ -376,7 +445,11 @@ export class PDFGeneratorService {
         
         
         .section {
-            margin-bottom: 40px;
+            margin-bottom: 32px;
+        }
+        
+        .section:first-of-type {
+            margin-top: 0;
         }
         
         .section-title {
@@ -479,13 +552,40 @@ export class PDFGeneratorService {
         
         .analytics-section,
         .reference-section,
-        .studies-section {
+        .studies-section,
+        .web-references-section {
             margin-top: 24px;
+        }
+        
+        .description {
+            margin-top: 16px;
+            padding: 16px;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        
+        .description p {
+            margin: 0;
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .link {
+            color: #0d9488;
+            text-decoration: underline;
+            font-weight: 500;
+        }
+        
+        .link:hover {
+            color: #0f766e;
         }
         
         .analytics-section h4,
         .reference-section h4,
-        .studies-section h4 {
+        .studies-section h4,
+        .web-references-section h4 {
             font-size: 16px;
             font-weight: 600;
             color: #111827;
@@ -510,6 +610,56 @@ export class PDFGeneratorService {
             color: #111827;
         }
         
+        .web-references-section h4:before {
+            content: "●";
+            color: #111827;
+        }
+        
+        .web-reference {
+            margin-bottom: 20px;
+            padding: 16px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #0d9488;
+        }
+        
+        .web-reference-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            gap: 16px;
+        }
+        
+        .web-reference-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            flex: 1;
+            margin: 0;
+        }
+        
+        .web-reference-title a {
+            text-decoration: none;
+        }
+        
+        .web-reference-title a:hover {
+            text-decoration: underline;
+        }
+        
+        .web-reference-source {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 8px 0;
+        }
+        
+        .web-reference-summary {
+            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.6;
+            margin: 0;
+        }
+        
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -527,6 +677,7 @@ export class PDFGeneratorService {
         .metric-teal { background-color: #f0fdfa; border-color: #99f6e4; }
         .metric-purple { background-color: #faf5ff; border-color: #d8b4fe; }
         .metric-orange { background-color: #fff7ed; border-color: #fed7aa; }
+        .metric-green { background-color: #f0fdf4; border-color: #bbf7d0; }
         
         .metric-value {
             font-size: 24px;
@@ -537,6 +688,7 @@ export class PDFGeneratorService {
         .metric-teal .metric-value { color: #0d9488; }
         .metric-purple .metric-value { color: #9333ea; }
         .metric-orange .metric-value { color: #ea580c; }
+        .metric-green .metric-value { color: #16a34a; }
         
         .metric-label {
             font-size: 12px;

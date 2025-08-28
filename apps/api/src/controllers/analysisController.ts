@@ -52,7 +52,15 @@ class AnalysisController {
       console.log(`Analyzing ${products.length} products out of ${productIds.length} requested`);
 
       // Analyze products with OpenAI
+      console.log('Calling OpenAI service with products:', products.map(p => ({id: p.Id, name: p.Name})));
       const analysis = await this.openaiService.analyzeProducts(products);
+
+      // Set no-cache headers to prevent caching
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
 
       // Return analysis results
       res.json({
@@ -63,18 +71,27 @@ class AnalysisController {
           analysis: {
             trending: {
               ingredients: analysis.trending.ingredients,
+              ingredientsDescription: analysis.trending.ingredientsDescription,
               claims: analysis.trending.claims,
-              ingredientCategories: analysis.trending.ingredientCategories
+              claimsDescription: analysis.trending.claimsDescription,
+              ingredientCategories: analysis.trending.ingredientCategories,
+              ingredientCategoriesDescription: analysis.trending.ingredientCategoriesDescription
             },
             emerging: {
               ingredients: analysis.emerging.ingredients,
+              ingredientsDescription: analysis.emerging.ingredientsDescription,
               claims: analysis.emerging.claims,
-              ingredientCategories: analysis.emerging.ingredientCategories
+              claimsDescription: analysis.emerging.claimsDescription,
+              ingredientCategories: analysis.emerging.ingredientCategories,
+              ingredientCategoriesDescription: analysis.emerging.ingredientCategoriesDescription
             },
             declining: {
               ingredients: analysis.declining.ingredients,
+              ingredientsDescription: analysis.declining.ingredientsDescription,
               claims: analysis.declining.claims,
-              ingredientCategories: analysis.declining.ingredientCategories
+              claimsDescription: analysis.declining.claimsDescription,
+              ingredientCategories: analysis.declining.ingredientCategories,
+              ingredientCategoriesDescription: analysis.declining.ingredientCategoriesDescription
             },
             insights: analysis.insights
           }
@@ -107,16 +124,12 @@ class AnalysisController {
       // Test OpenAI API key presence
       const openaiConfigured = !!process.env.OPENAI_API_KEY;
 
-      // Get cache statistics
-      const cacheStats = this.openaiService.getCacheStats();
-
       res.json({
         status: 'OK',
         services: {
           database: 'connected',
           openai: openaiConfigured ? 'configured' : 'not configured'
         },
-        cache: cacheStats,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
@@ -128,44 +141,6 @@ class AnalysisController {
     }
   };
 
-  // Cache management endpoint
-  manageCacheStats = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const action = req.query.action as string;
-      
-      if (action === 'clear') {
-        this.openaiService.clearCache();
-        res.json({
-          success: true,
-          message: 'Analysis cache cleared successfully',
-          timestamp: new Date().toISOString()
-        });
-      } else if (action === 'cleanup') {
-        this.openaiService.cleanupExpiredEntries();
-        const stats = this.openaiService.getCacheStats();
-        res.json({
-          success: true,
-          message: 'Expired cache entries cleaned up',
-          cache: stats,
-          timestamp: new Date().toISOString()
-        });
-      } else {
-        // Default: return cache statistics
-        const stats = this.openaiService.getCacheStats();
-        res.json({
-          success: true,
-          cache: stats,
-          timestamp: new Date().toISOString()
-        });
-      }
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
-      });
-    }
-  };
 
   // PDF export endpoint
   exportToPDF = async (req: Request, res: Response): Promise<void> => {
@@ -206,18 +181,27 @@ class AnalysisController {
         analysis: {
           trending: {
             ingredients: analysis.trending.ingredients,
+            ingredientsDescription: analysis.trending.ingredientsDescription,
             claims: analysis.trending.claims,
-            ingredientCategories: analysis.trending.ingredientCategories
+            claimsDescription: analysis.trending.claimsDescription,
+            ingredientCategories: analysis.trending.ingredientCategories,
+            ingredientCategoriesDescription: analysis.trending.ingredientCategoriesDescription
           },
           emerging: {
             ingredients: analysis.emerging.ingredients,
+            ingredientsDescription: analysis.emerging.ingredientsDescription,
             claims: analysis.emerging.claims,
-            ingredientCategories: analysis.emerging.ingredientCategories
+            claimsDescription: analysis.emerging.claimsDescription,
+            ingredientCategories: analysis.emerging.ingredientCategories,
+            ingredientCategoriesDescription: analysis.emerging.ingredientCategoriesDescription
           },
           declining: {
             ingredients: analysis.declining.ingredients,
+            ingredientsDescription: analysis.declining.ingredientsDescription,
             claims: analysis.declining.claims,
-            ingredientCategories: analysis.declining.ingredientCategories
+            claimsDescription: analysis.declining.claimsDescription,
+            ingredientCategories: analysis.declining.ingredientCategories,
+            ingredientCategoriesDescription: analysis.declining.ingredientCategoriesDescription
           },
           insights: analysis.insights
         },
@@ -232,12 +216,15 @@ class AnalysisController {
 
       const pdfBuffer = await this.pdfGeneratorService.generatePDF(reportData);
 
-      // Set response headers for PDF download
+      // Set response headers for PDF download with no-cache
       const filename = `Analysis_Report_${selectedCategory?.replace(/[^a-zA-Z0-9]/g, '_') || 'Report'}_${new Date().toISOString().split('T')[0]}.pdf`;
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Length', pdfBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
 
       // Send PDF buffer
       res.send(pdfBuffer);

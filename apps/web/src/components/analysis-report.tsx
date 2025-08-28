@@ -11,18 +11,27 @@ type TabType = "trending" | "emerging" | "declining" | "insights"
 interface AnalysisResult {
   trending: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   emerging: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   declining: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   insights: Array<{
     type: 'ingredient' | 'claim' | 'category';
@@ -122,6 +131,19 @@ export default function AnalysisReport({ analysis, selectedCategory, selectedPro
                 </Button>
               ))}
             </div>
+            {currentData.ingredientsDescription && (
+              <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p 
+                  className="text-sm text-gray-700 leading-relaxed"
+                  dangerouslySetInnerHTML={{ 
+                    __html: currentData.ingredientsDescription.replace(
+                      /\[([^\]]+)\]\(([^)]+)\)/g, 
+                      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-teal-600 hover:text-teal-700 underline">$1</a>'
+                    )
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -143,6 +165,19 @@ export default function AnalysisReport({ analysis, selectedCategory, selectedPro
                 </Button>
               ))}
             </div>
+            {currentData.claimsDescription && (
+              <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p 
+                  className="text-sm text-gray-700 leading-relaxed"
+                  dangerouslySetInnerHTML={{ 
+                    __html: currentData.claimsDescription.replace(
+                      /\[([^\]]+)\]\(([^)]+)\)/g, 
+                      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-teal-600 hover:text-teal-700 underline">$1</a>'
+                    )
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -164,6 +199,19 @@ export default function AnalysisReport({ analysis, selectedCategory, selectedPro
                 </Button>
               ))}
             </div>
+            {currentData.ingredientCategoriesDescription && (
+              <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p 
+                  className="text-sm text-gray-700 leading-relaxed"
+                  dangerouslySetInnerHTML={{ 
+                    __html: currentData.ingredientCategoriesDescription.replace(
+                      /\[([^\]]+)\]\(([^)]+)\)/g, 
+                      '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-teal-600 hover:text-teal-700 underline">$1</a>'
+                    )
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -178,9 +226,32 @@ export default function AnalysisReport({ analysis, selectedCategory, selectedPro
   }
 
   const renderInsightsContent = () => (
-    <div className="space-y-6">
-      {analysis.insights.length > 0 ? (
-        analysis.insights.map((insight, index) => (
+    <div className="space-y-8">
+      {/* All Insights Pills Section */}
+      {analysis.insights.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-teal-500">💡</span>
+            <h3 className="font-semibold text-gray-900">All Insights</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {analysis.insights.map((insight, index) => (
+              <Button 
+                key={insight.name} 
+                variant="outline" 
+                className={getButtonColor(index)}
+              >
+                {insight.type === 'ingredient' ? '🧪' : insight.type === 'claim' ? '🎯' : '📂'} {insight.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Insights */}
+      <div className="space-y-6">
+        {analysis.insights.length > 0 ? (
+          analysis.insights.map((insight, index) => (
           <div key={index} className="space-y-3">
             {/* Insight Header */}
             <div className="flex flex-wrap gap-2">
@@ -204,7 +275,7 @@ export default function AnalysisReport({ analysis, selectedCategory, selectedPro
                   <h3 className="font-semibold text-gray-900">User Analytics</h3>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="text-center p-4 rounded bg-blue-50 border border-blue-100">
                     <div className="text-2xl font-bold text-blue-500">{insight.usageMetrics.searchVolume || 'N/A'}</div>
                     <div className="text-sm text-gray-600">Search Volume</div>
@@ -221,18 +292,71 @@ export default function AnalysisReport({ analysis, selectedCategory, selectedPro
                     <div className="text-2xl font-bold text-orange-500">{insight.usageMetrics.recentMentions || 'N/A'}</div>
                     <div className="text-sm text-gray-600">Recent Mentions</div>
                   </div>
+                  <div className="text-center p-4 rounded bg-green-50 border border-green-100">
+                    <div className="text-2xl font-bold text-green-500">{(insight.usageMetrics as any)?.marketPenetration || 'N/A'}%</div>
+                    <div className="text-sm text-gray-600">Market Penetration</div>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Primary Reference */}
-            {insight.studyReference && (
+            {((insight as any).primaryReference || insight.studyReference) && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-gray-800 rounded-full"></span>
                   <h3 className="font-semibold text-gray-900">Primary Reference</h3>
                 </div>
-                <p className="text-sm text-gray-600 italic">{insight.studyReference}</p>
+                {(insight as any).primaryReference ? (
+                  <a 
+                    href={(insight as any).primaryReference} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-sm text-teal-600 hover:text-teal-700 underline"
+                  >
+                    {(insight as any).primaryReference}
+                  </a>
+                ) : (
+                  <p className="text-sm text-gray-600 italic">{insight.studyReference}</p>
+                )}
+              </div>
+            )}
+
+            {/* Web References */}
+            {(insight as any).webReferences && (insight as any).webReferences.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-gray-800 rounded-full"></span>
+                  <h3 className="font-semibold text-gray-900">Web References</h3>
+                </div>
+
+                <div className="space-y-4">
+                  {(insight as any).webReferences.map((reference: any, refIndex: number) => (
+                    <div key={refIndex} className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-medium text-gray-900 flex-1">
+                          <a 
+                            href={reference.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-teal-600 hover:text-teal-700 underline"
+                          >
+                            {reference.title}
+                          </a>
+                        </h4>
+                        {reference.relevanceScore && (
+                          <span className="text-sm text-teal-600 font-medium whitespace-nowrap">
+                            {reference.relevanceScore}% relevant
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        <span className="font-medium">Source:</span> {reference.source}
+                      </p>
+                      <p className="text-sm text-gray-600">{reference.summary}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -295,6 +419,7 @@ export default function AnalysisReport({ analysis, selectedCategory, selectedPro
           No insights available for this analysis.
         </div>
       )}
+      </div>
     </div>
   )
 
@@ -309,10 +434,13 @@ export default function AnalysisReport({ analysis, selectedCategory, selectedPro
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
       
-      const response = await fetch(`${API_BASE_URL}/api/analysis/export/pdf`, {
+      const response = await fetch(`${API_BASE_URL}/api/analysis/export/pdf?t=${Date.now()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
         body: JSON.stringify({
           productIds: selectedProductIds,

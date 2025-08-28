@@ -370,34 +370,34 @@ export default function AnalysisPage() {
                     )}
 
                     {/* Market Data */}
-                    {insight.marketData && (
+                    {(insight as any).marketData && (
                       <div className="mb-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
                         <h5 className="text-sm font-medium text-indigo-800 mb-2">Market Intelligence</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                          {insight.marketData.adoptionRate && (
+                          {(insight as any).marketData.adoptionRate && (
                             <div>
                               <span className="font-medium text-indigo-700">Adoption Rate:</span>
-                              <span className="ml-1 text-indigo-600">{insight.marketData.adoptionRate}</span>
+                              <span className="ml-1 text-indigo-600">{(insight as any).marketData.adoptionRate}</span>
                             </div>
                           )}
-                          {insight.marketData.searchTrends && (
+                          {(insight as any).marketData.searchTrends && (
                             <div>
                               <span className="font-medium text-indigo-700">Search Trends:</span>
-                              <span className="ml-1 text-indigo-600">{insight.marketData.searchTrends}</span>
+                              <span className="ml-1 text-indigo-600">{(insight as any).marketData.searchTrends}</span>
                             </div>
                           )}
-                          {insight.marketData.marketGrowth && (
+                          {(insight as any).marketData.marketGrowth && (
                             <div>
                               <span className="font-medium text-indigo-700">Market Growth:</span>
-                              <span className="ml-1 text-indigo-600">{insight.marketData.marketGrowth}</span>
+                              <span className="ml-1 text-indigo-600">{(insight as any).marketData.marketGrowth}</span>
                             </div>
                           )}
                         </div>
-                        {insight.marketData.industryReports && insight.marketData.industryReports.length > 0 && (
+                        {(insight as any).marketData.industryReports && (insight as any).marketData.industryReports.length > 0 && (
                           <div className="mt-2">
                             <span className="font-medium text-indigo-700 text-xs">Industry Reports:</span>
                             <ul className="mt-1 space-y-1">
-                              {insight.marketData.industryReports.map((report, reportIndex) => (
+                              {(insight as any).marketData.industryReports.map((report: any, reportIndex: number) => (
                                 <li key={reportIndex} className="text-xs text-indigo-600 ml-2">• {report}</li>
                               ))}
                             </ul>

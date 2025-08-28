@@ -229,10 +229,13 @@ export default function CosmicInsight() {
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/analysis`, {
+      const response = await fetch(`${API_BASE_URL}/api/analysis?t=${Date.now()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
         body: JSON.stringify({
           productIds: selectedProducts.map(p => p.Id)

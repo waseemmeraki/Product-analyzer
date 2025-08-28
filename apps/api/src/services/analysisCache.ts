@@ -4,18 +4,27 @@ import { Product } from './database';
 interface CachedAnalysisResult {
   trending: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   emerging: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   declining: {
     ingredients: string[];
+    ingredientsDescription?: string;
     claims: string[];
+    claimsDescription?: string;
     ingredientCategories: string[];
+    ingredientCategoriesDescription?: string;
   };
   insights: Array<{
     type: 'ingredient' | 'claim' | 'category';
